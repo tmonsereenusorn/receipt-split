@@ -6,10 +6,9 @@ import { Section } from "./Section";
 interface ShareSectionProps {
   shareText: string;
   csvText: string;
-  onStartOver: () => void;
 }
 
-export function ShareSection({ shareText, csvText, onStartOver }: ShareSectionProps) {
+export function ShareSection({ shareText, csvText }: ShareSectionProps) {
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
 
@@ -88,13 +87,6 @@ export function ShareSection({ shareText, csvText, onStartOver }: ShareSectionPr
           csv
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onStartOver}
-        className="mt-4 block w-full text-center text-xs text-zinc-600 hover:text-red-400 transition-colors"
-      >
-        start over
-      </button>
     </Section>
   );
 }

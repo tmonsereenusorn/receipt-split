@@ -114,8 +114,19 @@ export default function ReceiptPage() {
         <ShareSection
           shareText={shareText}
           csvText={csvText}
-          onStartOver={handleStartOver}
         />
+      )}
+
+      {hasItems && (
+        <div className="no-print py-4 text-center">
+          <button
+            type="button"
+            onClick={handleStartOver}
+            className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
+          >
+            start over
+          </button>
+        </div>
       )}
 
       {/* Print-only: full item list on page 2 */}
