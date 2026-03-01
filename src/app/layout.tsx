@@ -30,12 +30,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ReceiptProvider>
-          <main className="mx-auto min-h-screen max-w-5xl px-4 py-6">
+          <main className="mx-auto min-h-screen max-w-md px-4 py-6">
             {children}
           </main>
         </ReceiptProvider>
