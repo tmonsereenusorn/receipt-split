@@ -5,14 +5,14 @@ import { ReceiptContext } from "@/context/ReceiptContext";
 import { ReceiptItem, Person, TaxTip } from "@/types";
 
 const COLORS = [
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
+  "#22d3ee", // cyan-400
+  "#a78bfa", // violet-400
+  "#fb7185", // rose-400
+  "#34d399", // emerald-400
+  "#fb923c", // orange-400
+  "#38bdf8", // sky-400
+  "#e879f9", // fuchsia-400
+  "#a3e635", // lime-400
 ];
 
 let personCounter = 0;

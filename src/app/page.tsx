@@ -1,110 +1,114 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useReceipt } from "@/hooks/useReceipt";
-import { useOcr } from "@/hooks/useOcr";
-import { parseReceiptText } from "@/lib/parser";
-import { ImageCapture } from "@/components/scan/ImageCapture";
-import { ImagePreview } from "@/components/scan/ImagePreview";
-import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
-import { Button } from "@/components/ui/Button";
+import { calculateBreakdowns } from "@/lib/calculator";
+import { generateShareText, generateCsv } from "@/lib/format";
+import { ReceiptTape } from "@/components/receipt/ReceiptTape";
+import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
+import { ScanSection } from "@/components/receipt/ScanSection";
+import { PeopleSection } from "@/components/receipt/PeopleSection";
+import { ItemsSection } from "@/components/receipt/ItemsSection";
+import { TaxTipSection } from "@/components/receipt/TaxTipSection";
+import { TotalsSection } from "@/components/receipt/TotalsSection";
+import { SplitSection } from "@/components/receipt/SplitSection";
+import { ShareSection } from "@/components/receipt/ShareSection";
 
-export default function ScanPage() {
-  const router = useRouter();
+export default function ReceiptPage() {
   const receipt = useReceipt();
-  const ocr = useOcr();
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 
-  async function handleCapture(file: File, dataUrl: string) {
-    setImageDataUrl(dataUrl);
-    receipt.setImage(dataUrl);
+  const hasItems = receipt.items.length > 0;
+  const hasPeople = receipt.people.length > 0;
+  const allAssigned =
+    hasItems && receipt.items.every((item) => item.assignedTo.length > 0);
 
-    const text = await ocr.recognize(file);
-    if (text) {
-      receipt.setOcrText(text);
-      const items = parseReceiptText(text);
-      if (items.length > 0) {
-        receipt.setItems(items);
-      }
-    }
-  }
+  const breakdowns =
+    hasItems && hasPeople
+      ? calculateBreakdowns(receipt.items, receipt.people, receipt.taxTip)
+      : [];
 
-  function handleRetake() {
-    setImageDataUrl(null);
-  }
+  const shareText =
+    breakdowns.length > 0
+      ? generateShareText(receipt.items, receipt.taxTip, breakdowns)
+      : "";
 
-  function handleContinue() {
-    router.push("/assign");
+  const csvText =
+    breakdowns.length > 0
+      ? generateCsv(receipt.items, receipt.taxTip, breakdowns)
+      : "";
+
+  const unassignedCount = receipt.items.filter(
+    (item) => item.assignedTo.length === 0
+  ).length;
+
+  function handleScanComplete() {
+    // Items are already set via context
   }
 
   function handleSkipScan() {
-    router.push("/assign");
+    if (receipt.items.length === 0) {
+      receipt.addItem("New Item", 1, 0);
+    }
+  }
+
+  function handleStartOver() {
+    receipt.reset();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Receipt Split</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Scan a receipt to get started
-        </p>
-      </div>
+    <ReceiptTape>
+      <ReceiptHeader />
 
-      {!imageDataUrl && !ocr.isProcessing && (
-        <ImageCapture onCapture={handleCapture} />
+      {!hasItems && (
+        <ScanSection onComplete={handleScanComplete} onSkip={handleSkipScan} />
       )}
 
-      {imageDataUrl && !ocr.isProcessing && (
-        <ImagePreview dataUrl={imageDataUrl} onRetake={handleRetake} />
+      {hasItems && (
+        <PeopleSection
+          people={receipt.people}
+          onAdd={receipt.addPerson}
+          onUpdate={receipt.updatePerson}
+          onDelete={receipt.deletePerson}
+        />
       )}
 
-      {ocr.isProcessing && (
-        <OcrProgressDisplay progress={ocr.progress} />
+      {hasItems && (
+        <ItemsSection
+          items={receipt.items}
+          people={receipt.people}
+          onUpdate={receipt.updateItem}
+          onDelete={receipt.deleteItem}
+          onToggleAssignment={receipt.toggleAssignment}
+          onReorder={receipt.setItems}
+          onAddItem={() => receipt.addItem("New Item", 1, 0)}
+        />
       )}
 
-      {ocr.error && (
-        <p className="text-sm text-red-600">{ocr.error}</p>
-      )}
-
-      {ocr.result && !ocr.isProcessing && (
-        <div className="w-full space-y-3">
-          <div className="rounded-lg bg-gray-50 p-3">
-            <p className="mb-1 text-xs font-medium text-gray-500">
-              Found {receipt.items.length} item{receipt.items.length !== 1 ? "s" : ""}
-            </p>
-            {receipt.items.length === 0 && (
-              <p className="text-xs text-gray-400">
-                No items detected. You can add them manually on the next page.
-              </p>
-            )}
-            {receipt.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex justify-between text-sm"
-              >
-                <span>{item.name}</span>
-                <span className="text-gray-600">
-                  ${(item.priceCents / 100).toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <Button onClick={handleContinue} className="w-full">
-            Continue to Assign
-          </Button>
+      {hasItems && hasPeople && !allAssigned && unassignedCount > 0 && (
+        <div className="py-2 text-center font-mono text-xs text-amber-500">
+          {unassignedCount} item{unassignedCount !== 1 ? "s" : ""} unassigned
         </div>
       )}
 
-      {!ocr.isProcessing && !ocr.result && (
-        <button
-          type="button"
-          onClick={handleSkipScan}
-          className="text-sm text-gray-400 hover:text-gray-600"
-        >
-          Skip scan, enter items manually
-        </button>
+      {hasItems && (
+        <TaxTipSection taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
       )}
-    </div>
+
+      {hasItems && (
+        <TotalsSection items={receipt.items} taxTip={receipt.taxTip} />
+      )}
+
+      {allAssigned && hasPeople && (
+        <SplitSection breakdowns={breakdowns} />
+      )}
+
+      {allAssigned && hasPeople && (
+        <ShareSection
+          shareText={shareText}
+          csvText={csvText}
+          onStartOver={handleStartOver}
+        />
+      )}
+    </ReceiptTape>
   );
 }
