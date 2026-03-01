@@ -11,7 +11,6 @@ interface ItemsSectionProps {
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
-  onReorder: (items: ReceiptItem[]) => void;
   onAddItem: () => void;
 }
 
@@ -21,7 +20,6 @@ export function ItemsSection({
   onUpdate,
   onDelete,
   onToggleAssignment,
-  onReorder,
   onAddItem,
 }: ItemsSectionProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);

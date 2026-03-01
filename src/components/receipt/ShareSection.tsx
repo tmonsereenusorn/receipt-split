@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Section } from "./Section";
 
 interface ShareSectionProps {
@@ -11,6 +11,11 @@ interface ShareSectionProps {
 
 export function ShareSection({ shareText, csvText, onStartOver }: ShareSectionProps) {
   const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && "share" in navigator);
+  }, []);
 
   async function handleCopy() {
     try {
@@ -59,7 +64,7 @@ export function ShareSection({ shareText, csvText, onStartOver }: ShareSectionPr
         >
           {copied ? "✓ copied" : "copy"}
         </button>
-        {typeof navigator !== "undefined" && "share" in navigator && (
+        {canShare && (
           <button
             type="button"
             onClick={handleShare}

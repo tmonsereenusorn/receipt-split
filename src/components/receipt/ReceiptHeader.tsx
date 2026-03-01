@@ -1,14 +1,19 @@
+"use client";
+
+import { useState } from "react";
+
 export function ReceiptHeader() {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
+  const [timestamp] = useState(() => {
+    const now = new Date();
+    return `${now.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    })} ${now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })}`;
   });
 
   return (
@@ -20,7 +25,7 @@ export function ReceiptHeader() {
         ================================
       </div>
       <p className="mt-2 font-mono text-xs text-zinc-500">
-        {dateStr} {timeStr}
+        {timestamp}
       </p>
     </div>
   );

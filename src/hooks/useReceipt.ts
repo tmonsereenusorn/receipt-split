@@ -15,8 +15,6 @@ const COLORS = [
   "#a3e635", // lime-400
 ];
 
-let personCounter = 0;
-
 export function useReceipt() {
   const { state, dispatch } = useContext(ReceiptContext);
 
@@ -53,8 +51,7 @@ export function useReceipt() {
     },
 
     addPerson(name: string) {
-      const color = COLORS[personCounter % COLORS.length];
-      personCounter++;
+      const color = COLORS[state.people.length % COLORS.length];
       dispatch({
         type: "ADD_PERSON",
         person: {

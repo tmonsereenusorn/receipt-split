@@ -79,7 +79,6 @@ export default function ReceiptPage() {
           onUpdate={receipt.updateItem}
           onDelete={receipt.deleteItem}
           onToggleAssignment={receipt.toggleAssignment}
-          onReorder={receipt.setItems}
           onAddItem={() => receipt.addItem("New Item", 1, 0)}
         />
       )}

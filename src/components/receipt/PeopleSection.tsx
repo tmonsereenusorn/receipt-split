@@ -43,7 +43,7 @@ export function PeopleSection({ people, onAdd, onUpdate, onDelete }: PeopleSecti
       </h3>
       <div className="flex flex-wrap items-center gap-2">
         {people.map((person) => (
-          <div key={person.id} className="group relative">
+          <div key={person.id} className="group relative flex items-center">
             {editingId === person.id ? (
               <form
                 onSubmit={(e) => {
@@ -60,29 +60,29 @@ export function PeopleSection({ people, onAdd, onUpdate, onDelete }: PeopleSecti
                 />
               </form>
             ) : (
-              <button
-                type="button"
-                onClick={() => startEdit(person)}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                style={{ backgroundColor: `${person.color}20`, color: person.color, border: `1px solid ${person.color}40` }}
-              >
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: person.color }}
-                />
-                {person.name}
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(person.id);
-                  }}
-                  className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer hover:opacity-70"
-                  role="button"
+              <>
+                <button
+                  type="button"
+                  onClick={() => startEdit(person)}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                  style={{ backgroundColor: `${person.color}20`, color: person.color, border: `1px solid ${person.color}40` }}
+                >
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: person.color }}
+                  />
+                  {person.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(person.id)}
+                  className="-ml-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-70 text-xs"
+                  style={{ color: person.color }}
                   aria-label={`Remove ${person.name}`}
                 >
                   ×
-                </span>
-              </button>
+                </button>
+              </>
             )}
           </div>
         ))}
