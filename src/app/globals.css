@@ -28,19 +28,84 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+.print-only {
+  display: none;
+}
+
 @media print {
+  /* Hide interactive/screen-only elements */
   .no-print {
     display: none !important;
   }
 
-  body {
-    background: white;
-    color: black;
-    font-size: 11pt;
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
   }
 
+  /* Light background, dark text */
+  body {
+    background: white !important;
+    color: #171717 !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Keep receipt-width column, add print margins */
   main {
-    padding: 0 !important;
-    max-width: 100% !important;
+    padding: 0 2rem !important;
+    max-width: 28rem !important;
+    margin: 0 auto !important;
+  }
+
+  /* Receipt tape container: remove dark bg, shadow, torn edges */
+  .receipt-tape {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .receipt-tape .torn-edge {
+    display: none !important;
+  }
+
+  /* Section separators: light gray instead of zinc-700 */
+  .receipt-section {
+    border-color: #d1d5db !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  /* Override all dark text colors to print-friendly values */
+  .receipt-tape * {
+    color: #171717 !important;
+  }
+
+  .receipt-tape .print-muted {
+    color: #6b7280 !important;
+  }
+
+  /* Decorative separators */
+  .receipt-tape .print-decorative {
+    color: #9ca3af !important;
+  }
+
+  /* Keep person color dots visible */
+  .receipt-tape .person-dot {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page break rules */
+  .print-no-break {
+    break-inside: avoid;
+  }
+
+  .print-page-break {
+    break-before: page;
+  }
+
+  .print-keep-with-next {
+    break-after: avoid;
   }
 }
