@@ -12,6 +12,7 @@ import { TaxTipSection } from "@/components/receipt/TaxTipSection";
 import { TotalsSection } from "@/components/receipt/TotalsSection";
 import { SplitSection } from "@/components/receipt/SplitSection";
 import { ShareSection } from "@/components/receipt/ShareSection";
+import { PrintItemsList } from "@/components/receipt/PrintItemsList";
 
 export default function ReceiptPage() {
   const receipt = useReceipt();
@@ -60,37 +61,45 @@ export default function ReceiptPage() {
       <ReceiptHeader />
 
       {!hasItems && (
-        <ScanSection onComplete={handleScanComplete} onSkip={handleSkipScan} />
+        <div className="no-print">
+          <ScanSection onComplete={handleScanComplete} onSkip={handleSkipScan} />
+        </div>
       )}
 
       {hasItems && (
-        <PeopleSection
-          people={receipt.people}
-          onAdd={receipt.addPerson}
-          onUpdate={receipt.updatePerson}
-          onDelete={receipt.deletePerson}
-        />
+        <div className="no-print">
+          <PeopleSection
+            people={receipt.people}
+            onAdd={receipt.addPerson}
+            onUpdate={receipt.updatePerson}
+            onDelete={receipt.deletePerson}
+          />
+        </div>
       )}
 
       {hasItems && (
-        <ItemsSection
-          items={receipt.items}
-          people={receipt.people}
-          onUpdate={receipt.updateItem}
-          onDelete={receipt.deleteItem}
-          onToggleAssignment={receipt.toggleAssignment}
-          onAddItem={() => receipt.addItem("New Item", 1, 0)}
-        />
+        <div className="no-print">
+          <ItemsSection
+            items={receipt.items}
+            people={receipt.people}
+            onUpdate={receipt.updateItem}
+            onDelete={receipt.deleteItem}
+            onToggleAssignment={receipt.toggleAssignment}
+            onAddItem={() => receipt.addItem("New Item", 1, 0)}
+          />
+        </div>
       )}
 
       {hasItems && hasPeople && !allAssigned && unassignedCount > 0 && (
-        <div className="py-2 text-center font-mono text-xs text-amber-500">
+        <div className="no-print py-2 text-center font-mono text-xs text-amber-500">
           {unassignedCount} item{unassignedCount !== 1 ? "s" : ""} unassigned
         </div>
       )}
 
       {hasItems && (
-        <TaxTipSection taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
+        <div className="no-print">
+          <TaxTipSection taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
+        </div>
       )}
 
       {hasItems && (
@@ -107,6 +116,11 @@ export default function ReceiptPage() {
           csvText={csvText}
           onStartOver={handleStartOver}
         />
+      )}
+
+      {/* Print-only: full item list on page 2 */}
+      {hasItems && (
+        <PrintItemsList items={receipt.items} />
       )}
     </ReceiptTape>
   );
