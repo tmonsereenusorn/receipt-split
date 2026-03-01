@@ -12,14 +12,14 @@ export function Input({ label, className, id, ...props }: InputProps) {
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={inputId} className="text-sm font-medium text-gray-700">
+        <label htmlFor={inputId} className="text-xs font-medium uppercase tracking-wider text-zinc-500">
           {label}
         </label>
       )}
       <input
         id={inputId}
         className={clsx(
-          "rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500",
+          "rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 transition-colors placeholder:text-zinc-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500",
           className
         )}
         {...props}
