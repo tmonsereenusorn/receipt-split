@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { Button } from "@/components/ui/Button";
 
 interface ImageCaptureProps {
   onCapture: (file: File, dataUrl: string) => void;
@@ -22,7 +21,7 @@ export function ImageCapture({ onCapture }: ImageCaptureProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 py-4">
       <input
         ref={inputRef}
         type="file"
@@ -32,27 +31,26 @@ export function ImageCapture({ onCapture }: ImageCaptureProps) {
         className="hidden"
         aria-label="Capture receipt image"
       />
-      <Button
-        size="lg"
+      <button
+        type="button"
         onClick={() => inputRef.current?.click()}
-        className="w-full max-w-xs"
+        className="w-full rounded-lg border-2 border-dashed border-amber-500/50 px-6 py-8 text-center transition-colors hover:border-amber-500 hover:bg-amber-500/5"
       >
-        Take Photo
-      </Button>
+        <div className="font-mono text-sm text-amber-500">[ SCAN RECEIPT ]</div>
+        <div className="mt-1 text-xs text-zinc-500">tap to take a photo</div>
+      </button>
       <button
         type="button"
         onClick={() => {
-          // Remove capture attribute for gallery access
           if (inputRef.current) {
             inputRef.current.removeAttribute("capture");
             inputRef.current.click();
-            // Restore capture for next time
             setTimeout(() => {
               inputRef.current?.setAttribute("capture", "environment");
             }, 1000);
           }
         }}
-        className="text-sm text-blue-600 hover:underline"
+        className="text-xs text-zinc-500 hover:text-zinc-300"
       >
         or choose from gallery
       </button>

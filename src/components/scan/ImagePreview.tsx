@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
-
 interface ImagePreviewProps {
   dataUrl: string;
   onRetake: () => void;
@@ -9,16 +7,20 @@ interface ImagePreviewProps {
 
 export function ImagePreview({ dataUrl, onRetake }: ImagePreviewProps) {
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-3 py-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={dataUrl}
         alt="Captured receipt"
-        className="max-h-64 rounded-lg border border-gray-200 object-contain"
+        className="max-h-48 rounded border border-zinc-700 object-contain"
       />
-      <Button variant="ghost" size="sm" onClick={onRetake}>
-        Retake
-      </Button>
+      <button
+        type="button"
+        onClick={onRetake}
+        className="text-xs text-zinc-500 hover:text-zinc-300"
+      >
+        retake
+      </button>
     </div>
   );
 }

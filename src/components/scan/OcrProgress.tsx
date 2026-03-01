@@ -1,7 +1,6 @@
 "use client";
 
 import { OcrProgress as OcrProgressType } from "@/types";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 
 interface OcrProgressProps {
   progress: OcrProgressType | null;
@@ -21,10 +20,17 @@ export function OcrProgressDisplay({ progress }: OcrProgressProps) {
 
   const label =
     STATUS_LABELS[progress.status] || progress.status || "Processing...";
+  const pct = Math.round(progress.progress * 100);
+  const filled = Math.round(progress.progress * 20);
+  const empty = 20 - filled;
+  const bar = "\u2588".repeat(filled) + "\u2591".repeat(empty);
 
   return (
-    <div className="w-full max-w-xs space-y-2">
-      <ProgressBar progress={progress.progress} label={label} />
+    <div className="w-full space-y-2 py-4 text-center">
+      <div className="font-mono text-sm text-amber-500">
+        [{bar}] {pct}%
+      </div>
+      <div className="text-xs text-zinc-500">{label}</div>
     </div>
   );
 }
