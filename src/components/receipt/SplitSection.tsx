@@ -15,7 +15,7 @@ export function SplitSection({ breakdowns }: SplitSectionProps) {
 
   return (
     <Section>
-      <div className="mb-3 text-center font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
+      <div className="print-decorative mb-3 text-center font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
         ——— SPLIT ———
       </div>
       <div className="space-y-4">
@@ -33,12 +33,12 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
   if (totalCents === 0) return null;
 
   return (
-    <div className="space-y-1">
+    <div className="print-no-break space-y-1">
       {/* Person header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
+            className="person-dot inline-block h-2.5 w-2.5 rounded-full"
             style={{ backgroundColor: person.color }}
           />
           <span className="text-sm font-semibold text-zinc-200">{person.name}</span>
@@ -51,7 +51,7 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
       {/* Item breakdown */}
       <div className="space-y-0.5 pl-5">
         {items.map(({ item, shareCents, splitCount }) => (
-          <div key={item.id} className="flex justify-between font-mono text-xs text-zinc-500">
+          <div key={item.id} className="print-muted flex justify-between font-mono text-xs text-zinc-500">
             <span className="truncate">
               {item.name}
               {splitCount > 1 && (
@@ -62,13 +62,13 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
           </div>
         ))}
         {taxShareCents > 0 && (
-          <div className="flex justify-between font-mono text-xs text-zinc-500">
+          <div className="print-muted flex justify-between font-mono text-xs text-zinc-500">
             <span>tax</span>
             <span>{formatCents(taxShareCents)}</span>
           </div>
         )}
         {tipShareCents > 0 && (
-          <div className="flex justify-between font-mono text-xs text-zinc-500">
+          <div className="print-muted flex justify-between font-mono text-xs text-zinc-500">
             <span>tip</span>
             <span>{formatCents(tipShareCents)}</span>
           </div>

@@ -17,14 +17,14 @@ export function ReceiptHeader() {
   });
 
   return (
-    <div className="py-6 text-center">
+    <div className="print-keep-with-next py-6 text-center">
       <h1 className="font-mono text-lg font-bold uppercase tracking-[0.25em] text-zinc-100">
         Receipt Split
       </h1>
-      <div className="mt-1 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
+      <div className="print-decorative mt-1 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
         ================================
       </div>
-      <p className="mt-2 font-mono text-xs text-zinc-500">
+      <p className="print-muted mt-2 font-mono text-xs text-zinc-500">
         {timestamp}
       </p>
     </div>

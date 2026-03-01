@@ -20,24 +20,24 @@ export function TotalsSection({ items, taxTip }: TotalsSectionProps) {
 
   return (
     <Section>
-      <div className="space-y-1.5 font-mono text-sm">
-        <div className="flex justify-between text-zinc-400">
+      <div className="print-no-break space-y-1.5 font-mono text-sm">
+        <div className="print-muted flex justify-between text-zinc-400">
           <span>SUBTOTAL</span>
           <span className="text-zinc-300">{formatCents(subtotal)}</span>
         </div>
-        <div className="flex justify-between text-zinc-400">
+        <div className="print-muted flex justify-between text-zinc-400">
           <span>
             TAX{taxTip.taxIsPercent ? ` (${taxTip.taxPercent}%)` : ""}
           </span>
           <span className="text-zinc-300">{formatCents(tax)}</span>
         </div>
-        <div className="flex justify-between text-zinc-400">
+        <div className="print-muted flex justify-between text-zinc-400">
           <span>
             TIP{taxTip.tipIsPercent ? ` (${taxTip.tipPercent}%)` : ""}
           </span>
           <span className="text-zinc-300">{formatCents(tip)}</span>
         </div>
-        <div className="text-xs text-zinc-600 select-none" aria-hidden="true">
+        <div className="print-decorative text-xs text-zinc-600 select-none" aria-hidden="true">
           ================================
         </div>
         <div className="flex justify-between text-base font-bold text-zinc-100">
