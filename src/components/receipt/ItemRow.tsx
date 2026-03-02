@@ -75,15 +75,15 @@ export function ItemRow({
             onToggleExpand();
           }
         }}
-        className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50 ${isUnassigned && !activePerson ? "bg-red-500/5" : ""}`}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50"
       >
         {/* Quantity */}
-        <span className={`w-6 shrink-0 font-mono text-xs ${isUnassigned && !activePerson ? "text-red-400/60" : "text-zinc-500"}`}>
+        <span className="w-6 shrink-0 font-mono text-xs text-zinc-500">
           {item.quantity}×
         </span>
 
         {/* Name */}
-        <span className={`min-w-0 flex-1 truncate text-sm ${isUnassigned && !activePerson ? "text-red-300" : "text-zinc-200"}`}>
+        <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
           {item.name}
         </span>
 
