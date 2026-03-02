@@ -36,6 +36,7 @@ export function ItemRow({
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeOpen, setIsSwipeOpen] = useState(false);
+  const swipeOffsetRef = useRef(0);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isTouching = useRef(false);
@@ -91,6 +92,7 @@ export function ItemRow({
     const base = isSwipeOpen ? -DELETE_ZONE_WIDTH : 0;
     const raw = base + dx;
     const clamped = Math.max(-DELETE_ZONE_WIDTH, Math.min(0, raw));
+    swipeOffsetRef.current = clamped;
     setSwipeOffset(clamped);
   }, [activePerson, isExpanded, isSwipeOpen]);
 
@@ -98,14 +100,16 @@ export function ItemRow({
     if (activePerson || isExpanded) return;
     isTouching.current = false;
     if (swipeDirection.current !== "horizontal") return;
-    if (Math.abs(swipeOffset) > SWIPE_THRESHOLD) {
+    if (Math.abs(swipeOffsetRef.current) > SWIPE_THRESHOLD) {
+      swipeOffsetRef.current = -DELETE_ZONE_WIDTH;
       setSwipeOffset(-DELETE_ZONE_WIDTH);
       setIsSwipeOpen(true);
     } else {
+      swipeOffsetRef.current = 0;
       setSwipeOffset(0);
       setIsSwipeOpen(false);
     }
-  }, [activePerson, isExpanded, swipeOffset]);
+  }, [activePerson, isExpanded]);
 
   // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
