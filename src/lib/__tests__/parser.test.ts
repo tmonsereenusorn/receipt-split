@@ -169,10 +169,109 @@ Cash Discount:
 02/27/2026 19:53 Server:Ricky
 !!! THANK YOU !!!`;
     const items = parseReceiptText(text);
-    expect(items.length).toBeGreaterThanOrEqual(5);
+    expect(items).toHaveLength(4);
     expect(items[0]).toMatchObject({
       name: "CHICKEN KARAAGE",
       priceCents: 950,
+    });
+  });
+
+  it("parses prices with 0-1 decimal places", () => {
+    const items = parseReceiptText("Beer 8\nWine 12.5");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ name: "Beer", priceCents: 800 });
+    expect(items[1]).toMatchObject({ name: "Wine", priceCents: 1250 });
+  });
+
+  it("does not skip 'Gift Card' as an item", () => {
+    const items = parseReceiptText("Gift Card 25.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Gift Card", priceCents: 2500 });
+  });
+
+  it("does not skip 'Balance Bowl' as an item", () => {
+    const items = parseReceiptText("Balance Bowl 14.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Balance Bowl", priceCents: 1400 });
+  });
+
+  it("skips service charge, discount, and sales total lines", () => {
+    const text = `Burger 12.99
+20% SERVICE CHARGE: 64.41
+Cash Discount: -12.50
+SALES TOTAL: 355.38`;
+    const items = parseReceiptText(text);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("Burger");
+  });
+
+  it("parses non-ASCII item names", () => {
+    const items = parseReceiptText("Crème Brûlée 9.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Crème Brûlée", priceCents: 950 });
+  });
+
+  it("parses multi-line price-then-name order", () => {
+    const items = parseReceiptText("9.50\nCHICKEN KARAAGE");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "CHICKEN KARAAGE",
+      priceCents: 950,
+    });
+  });
+
+  it("parses @ quantity separator (unit price)", () => {
+    const items = parseReceiptText("Coffee 2 @ $4.50 $9.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Coffee",
+      quantity: 2,
+      priceCents: 450,
+    });
+  });
+
+  it("parses dot-leader lines", () => {
+    const items = parseReceiptText("Burger........12.99");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Burger",
+      priceCents: 1299,
+    });
+  });
+
+  it("parses dash-leader lines", () => {
+    const items = parseReceiptText("Fries --- 4.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Fries",
+      priceCents: 450,
+    });
+  });
+
+  it("parses #-prefixed item names", () => {
+    const items = parseReceiptText("#1 Combo Meal 12.99");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Combo Meal",
+      priceCents: 1299,
+    });
+  });
+
+  it("parses digit-dot-prefixed item names", () => {
+    const items = parseReceiptText("2. Pad Thai 14.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Pad Thai",
+      priceCents: 1450,
+    });
+  });
+
+  it("parses comped items at $0.00", () => {
+    const items = parseReceiptText("Comp Water 0.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Comp Water",
+      priceCents: 0,
     });
   });
 });

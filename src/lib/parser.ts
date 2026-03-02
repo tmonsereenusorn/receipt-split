@@ -19,7 +19,7 @@ function parseCents(priceStr: string): number | null {
     cleaned = cleaned.replace(",", ".");
   }
   const num = parseFloat(cleaned);
-  if (isNaN(num) || num <= 0) return null;
+  if (isNaN(num) || num < 0) return null;
   return Math.round(num * 100);
 }
 
@@ -58,15 +58,13 @@ const SKIP_PATTERNS = [
   /\btax\b/i,
   /\btip\b/i,
   /\bgratuity\b/i,
-  /\bchange\b/i,
-  /\bbalance\b/i,
+  /\bchange\s*due\b/i,
+  /\bbalance\s*(due|owing|forward)\b/i,
   /\bamount\s*due\b/i,
   /\bvisa\b/i,
   /\bmastercard\b/i,
   /\bcash\b/i,
-  /\bdebit\b/i,
-  /\bcredit\b/i,
-  /\bcard\b/i,
+  /\b(credit|debit)\s*card\b/i,
   /\bpayment\b/i,
   /thank\s*you/i,
   /\bguest\b/i,
@@ -80,11 +78,14 @@ const SKIP_PATTERNS = [
   /\baddress\b/i,
   /www\./i,
   /\.com/i,
-  /^\d{1,2}[/:]\d{2}/,  // timestamps
-  /^\d{1,2}-\d{1,2}-\d{2,4}/, // dates
+  /^\d{1,2}[/:]\d{2}/,
+  /^\d{1,2}-\d{1,2}-\d{2,4}/,
   /^\*+$/,
   /^-+$/,
   /^=+$/,
+  /\bservice\s*charge\b/i,
+  /\bdiscount\b/i,
+  /\bsales\s*total\b/i,
 ];
 
 function shouldSkipLine(line: string): boolean {
@@ -95,14 +96,14 @@ function shouldSkipLine(line: string): boolean {
  * Check if a line is just a price (e.g., "9.50", "$14.95")
  */
 function isPriceLine(line: string): boolean {
-  return /^\$?[\d,]+\.\d{2}\s*$/.test(line.trim());
+  return /^\$?[\d,]+(?:\.\d{1,2})?\s*$/.test(line.trim());
 }
 
 /**
  * Check if a line looks like an item name (starts with a letter, no trailing price)
  */
 function isNameLine(line: string): boolean {
-  return /^[A-Za-z]/.test(line.trim()) && !isPriceLine(line);
+  return /^[^\d$]/.test(line.trim()) && !isPriceLine(line);
 }
 
 /**
@@ -122,7 +123,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 1: qty x name ... price (e.g., "2 x Burger 12.99" or "2x Burger $12.99")
     match = line.match(
-      /^(\d+)\s*[xX×]\s+(.+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^(\d+)\s*[xX×]\s+(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const qty = parseInt(match[1], 10);
@@ -141,7 +142,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 2: qty name ... price (e.g., "2 Burger 12.99")
     match = line.match(
-      /^(\d+)\s+([A-Za-z].+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^(\d+)\s+([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const qty = parseInt(match[1], 10);
@@ -160,9 +161,70 @@ export function parseReceiptText(text: string): ReceiptItem[] {
       }
     }
 
+    // Pattern 5: name qty @ unit_price [total] (e.g., "Coffee 2 @ $4.50 $9.00")
+    match = line.match(
+      /^(.+?)\s+(\d+)\s*@\s*\$?([\d,]+(?:\.\d{1,2})?)(?:\s+\$?[\d,]+(?:\.\d{1,2})?)?\s*$/
+    );
+    if (match) {
+      const qty = parseInt(match[2], 10);
+      const cents = parseCents(match[3]);
+      if (cents !== null && qty >= 1 && qty <= 99) {
+        items.push({
+          id: makeId(),
+          name: match[1].trim(),
+          quantity: qty,
+          priceCents: cents,
+          assignedTo: [],
+        });
+        continue;
+      }
+    }
+
+    // Pattern 6: dot/dash leader (e.g., "Burger........12.99" or "Fries --- 4.50")
+    match = line.match(
+      /^(.+?)\s*[.·\-]{2,}\s*\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+    );
+    if (match) {
+      const name = match[1].trim();
+      if (name && /^[^\d$]/.test(name)) {
+        const cents = parseCents(match[2]);
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          continue;
+        }
+      }
+    }
+
+    // Pattern 7: #/digit-prefixed items (e.g., "#1 Combo Meal 12.99" or "2. Pad Thai 14.50")
+    match = line.match(
+      /^(?:#\d+|\d+\.)\s+(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+    );
+    if (match) {
+      const name = match[1].trim();
+      if (name) {
+        const cents = parseCents(match[2]);
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          continue;
+        }
+      }
+    }
+
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
-      /^([A-Za-z].+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const cents = parseCents(match[2]);
@@ -193,6 +255,25 @@ export function parseReceiptText(text: string): ReceiptItem[] {
             assignedTo: [],
           });
           i++; // skip the price line
+          continue;
+        }
+      }
+    }
+
+    // Pattern 4b: Multi-line — price on this line, name on next line
+    if (isPriceLine(line) && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (isNameLine(nextLine) && !shouldSkipLine(nextLine)) {
+        const cents = parseCents(line.replace(/^\$/, ""));
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name: nextLine,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          i++; // skip the name line
           continue;
         }
       }
