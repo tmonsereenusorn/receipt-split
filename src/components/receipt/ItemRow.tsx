@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ReceiptItem, Person } from "@/types";
 import { formatCents } from "@/lib/format";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -25,6 +25,27 @@ export function ItemRow({
   onToggleAssignment,
 }: ItemRowProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [localName, setLocalName] = useState(item.name);
+  const [localQty, setLocalQty] = useState(String(item.quantity));
+  const isNameFocused = useRef(false);
+  const isQtyFocused = useRef(false);
+  const prevName = useRef(item.name);
+  const prevQty = useRef(item.quantity);
+
+  useEffect(() => {
+    if (!isNameFocused.current && item.name !== prevName.current) {
+      setLocalName(item.name);
+    }
+    prevName.current = item.name;
+  }, [item.name]);
+
+  useEffect(() => {
+    if (!isQtyFocused.current && item.quantity !== prevQty.current) {
+      setLocalQty(String(item.quantity));
+    }
+    prevQty.current = item.quantity;
+  }, [item.quantity]);
+
   const total = item.quantity * item.priceCents;
   const isUnassigned = people.length > 0 && item.assignedTo.length === 0;
   const allAssigned = people.length > 0 && people.every((p) => item.assignedTo.includes(p.id));
@@ -77,8 +98,14 @@ export function ItemRow({
           {/* Edit fields */}
           <div className="flex items-center gap-3 pt-1">
             <input
-              value={item.name}
-              onChange={(e) => onUpdate(item.id, { name: e.target.value })}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onFocus={() => { isNameFocused.current = true; }}
+              onBlur={() => {
+                isNameFocused.current = false;
+                onUpdate(item.id, { name: localName });
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
               className="min-w-0 flex-1 border-b border-amber-500/50 bg-transparent py-1 text-sm text-zinc-200 focus:border-amber-500 focus:outline-none"
               aria-label="Item name"
             />
@@ -87,12 +114,16 @@ export function ItemRow({
               <input
                 type="number"
                 min={1}
-                value={item.quantity}
-                onChange={(e) =>
-                  onUpdate(item.id, {
-                    quantity: Math.max(1, parseInt(e.target.value) || 1),
-                  })
-                }
+                value={localQty}
+                onChange={(e) => setLocalQty(e.target.value)}
+                onFocus={() => { isQtyFocused.current = true; }}
+                onBlur={() => {
+                  isQtyFocused.current = false;
+                  const parsed = Math.max(1, parseInt(localQty) || 1);
+                  setLocalQty(String(parsed));
+                  onUpdate(item.id, { quantity: parsed });
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                 className="w-10 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-center font-mono text-xs text-zinc-300"
               />
             </label>

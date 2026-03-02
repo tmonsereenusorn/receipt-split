@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TaxTip } from "@/types";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Section } from "./Section";
@@ -33,6 +33,17 @@ function PercentOrDollarInput({
   onChangeCents: (cents: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [localPercent, setLocalPercent] = useState(String(percent));
+  const isPercentFocused = useRef(false);
+  const prevPercent = useRef(percent);
+
+  useEffect(() => {
+    if (!isPercentFocused.current && percent !== prevPercent.current) {
+      setLocalPercent(String(percent));
+    }
+    prevPercent.current = percent;
+  }, [percent]);
+
   const displayValue = isPercent ? `${percent}%` : `$${(cents / 100).toFixed(2)}`;
 
   return (
@@ -94,12 +105,16 @@ function PercentOrDollarInput({
                   step="0.1"
                   min="0"
                   max="100"
-                  value={percent}
-                  onChange={(e) =>
-                    onChangePercent(
-                      Math.max(0, parseFloat(e.target.value) || 0)
-                    )
-                  }
+                  value={localPercent}
+                  onChange={(e) => setLocalPercent(e.target.value)}
+                  onFocus={() => { isPercentFocused.current = true; }}
+                  onBlur={() => {
+                    isPercentFocused.current = false;
+                    const parsed = Math.max(0, parseFloat(localPercent) || 0);
+                    setLocalPercent(String(parsed));
+                    onChangePercent(parsed);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                   className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-300 focus:border-amber-500 focus:outline-none"
                 />
                 <span className="font-mono text-xs text-zinc-500">%</span>

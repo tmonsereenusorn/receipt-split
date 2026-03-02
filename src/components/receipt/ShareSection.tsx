@@ -4,23 +4,37 @@ import { useState, useEffect } from "react";
 import { Section } from "./Section";
 
 interface ShareSectionProps {
-  shareText: string;
-  csvText: string;
+  shareText?: string;
+  csvText?: string;
 }
 
 export function ShareSection({ shareText, csvText }: ShareSectionProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
   const [canShare, setCanShare] = useState(false);
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && "share" in navigator);
   }, []);
 
-  async function handleCopy() {
+  const hasExportData = !!shareText;
+
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      /* noop */
+    }
+  }
+
+  async function handleCopyText() {
+    if (!shareText) return;
     try {
       await navigator.clipboard.writeText(shareText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
     } catch {
       const textarea = document.createElement("textarea");
       textarea.value = shareText;
@@ -28,15 +42,15 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
       textarea.select();
       document.execCommand("copy");
       document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
     }
   }
 
   async function handleShare() {
     if (navigator.share) {
       try {
-        await navigator.share({ text: shareText });
+        await navigator.share({ url: window.location.href, text: shareText || undefined });
       } catch {
         // user cancelled
       }
@@ -44,6 +58,7 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
   }
 
   function handleExportCsv() {
+    if (!csvText) return;
     const blob = new Blob([csvText], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -58,10 +73,10 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
       <div className="flex flex-wrap justify-center gap-2">
         <button
           type="button"
-          onClick={handleCopy}
+          onClick={handleCopyLink}
           className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
         >
-          {copied ? "✓ copied" : "copy"}
+          {copiedLink ? "✓ copied" : "copy link"}
         </button>
         {canShare && (
           <button
@@ -72,20 +87,31 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
             share
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
-        >
-          pdf
-        </button>
-        <button
-          type="button"
-          onClick={handleExportCsv}
-          className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
-        >
-          csv
-        </button>
+        {hasExportData && (
+          <>
+            <button
+              type="button"
+              onClick={handleCopyText}
+              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+            >
+              {copiedText ? "✓ copied" : "copy split"}
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+            >
+              pdf
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+            >
+              csv
+            </button>
+          </>
+        )}
       </div>
     </Section>
   );

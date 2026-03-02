@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Person } from "@/types";
+import { Person, ReceiptItem } from "@/types";
 import { Section } from "./Section";
 
 interface PeopleSectionProps {
   people: Person[];
+  items: ReceiptItem[];
   onAdd: (name: string) => void;
   onUpdate: (id: string, name: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function PeopleSection({ people, onAdd, onUpdate, onDelete }: PeopleSectionProps) {
+export function PeopleSection({ people, items, onAdd, onUpdate, onDelete }: PeopleSectionProps) {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -72,6 +73,11 @@ export function PeopleSection({ people, onAdd, onUpdate, onDelete }: PeopleSecti
                     style={{ backgroundColor: person.color }}
                   />
                   {person.name}
+                  {items.length > 0 && (
+                    <span className="ml-0.5 opacity-60">
+                      {items.filter((item) => item.assignedTo.includes(person.id)).length}
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { use } from "react";
+import Link from "next/link";
 import { useFirestoreReceipt } from "@/hooks/useFirestoreReceipt";
 import { calculateBreakdowns } from "@/lib/calculator";
 import { generateShareText, generateCsv } from "@/lib/format";
@@ -68,11 +69,21 @@ export default function CollaborativeReceiptPage({
 
   return (
     <ReceiptTape>
-      <ReceiptHeader restaurantName={receipt.restaurantName} />
+      <div className="no-print px-3 pt-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-1 font-mono text-xs text-amber-500 transition-colors hover:bg-zinc-700"
+        >
+          <span aria-hidden="true">&larr;</span> new shplit
+        </Link>
+      </div>
+
+      <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName} />
 
       <div className="no-print">
         <PeopleSection
           people={receipt.people}
+          items={receipt.items}
           onAdd={receipt.addPerson}
           onUpdate={receipt.updatePerson}
           onDelete={receipt.deletePerson}
@@ -112,9 +123,10 @@ export default function CollaborativeReceiptPage({
         <SplitSection breakdowns={breakdowns} />
       )}
 
-      {allAssigned && hasPeople && (
-        <ShareSection shareText={shareText} csvText={csvText} />
-      )}
+      <ShareSection
+        shareText={shareText || undefined}
+        csvText={csvText || undefined}
+      />
 
       {hasItems && (
         <PrintItemsList items={receipt.items} />
