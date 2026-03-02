@@ -167,7 +167,7 @@ export function ItemRow({
                     : people.filter((p) => !item.assignedTo.includes(p.id)).map((p) => p.id);
                   toToggle.forEach((pid) => onToggleAssignment(item.id, pid));
                 }}
-                className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-800"
+                className="rounded border border-dashed border-zinc-600 px-2 py-0.5 font-mono text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-400"
               >
                 {allAssigned ? "none" : "all"}
               </button>
