@@ -66,13 +66,18 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
               <>
                 <button
                   type="button"
-                  onClick={() => startEdit(person)}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                  style={{ backgroundColor: `${person.color}20`, color: person.color, border: `1px solid ${person.color}40` }}
+                  onClick={() => onSelectPerson(activePerson === person.id ? null : person.id)}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all"
+                  style={
+                    activePerson === person.id
+                      ? { backgroundColor: person.color, color: "#18181b", border: `1px solid ${person.color}` }
+                      : { backgroundColor: `${person.color}20`, color: person.color, border: `1px solid ${person.color}40` }
+                  }
+                  aria-pressed={activePerson === person.id}
                 >
                   <span
                     className="inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: person.color }}
+                    style={{ backgroundColor: activePerson === person.id ? "#18181b" : person.color }}
                   />
                   {person.name}
                   {items.length > 0 && (
@@ -80,6 +85,15 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                       {items.filter((item) => item.assignedTo.includes(person.id)).length}
                     </span>
                   )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startEdit(person)}
+                  className="-ml-1 opacity-0 transition-opacity group-hover:opacity-100 text-xs"
+                  style={{ color: person.color }}
+                  aria-label={`Edit ${person.name}`}
+                >
+                  ✎
                 </button>
                 <button
                   type="button"
@@ -103,6 +117,11 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
           />
         </form>
       </div>
+      {people.length > 0 && items.length > 0 && !activePerson && (
+        <p className="mt-2 text-center font-mono text-xs text-zinc-600">
+          tap your name to claim items
+        </p>
+      )}
     </Section>
   );
 }
