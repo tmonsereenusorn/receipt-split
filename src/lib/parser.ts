@@ -180,6 +180,27 @@ export function parseReceiptText(text: string): ReceiptItem[] {
       }
     }
 
+    // Pattern 6: dot/dash leader (e.g., "Burger........12.99" or "Fries --- 4.50")
+    match = line.match(
+      /^(.+?)\s*[.·\-]{2,}\s*\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+    );
+    if (match) {
+      const name = match[1].trim();
+      if (name && /^[^\d$]/.test(name)) {
+        const cents = parseCents(match[2]);
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          continue;
+        }
+      }
+    }
+
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
       /^([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/

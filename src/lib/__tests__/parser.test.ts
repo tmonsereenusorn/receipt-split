@@ -229,6 +229,24 @@ SALES TOTAL: 355.38`;
       priceCents: 450,
     });
   });
+
+  it("parses dot-leader lines", () => {
+    const items = parseReceiptText("Burger........12.99");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Burger",
+      priceCents: 1299,
+    });
+  });
+
+  it("parses dash-leader lines", () => {
+    const items = parseReceiptText("Fries --- 4.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Fries",
+      priceCents: 450,
+    });
+  });
 });
 
 describe("parseRestaurantName", () => {
