@@ -63,16 +63,19 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                 />
               </form>
             ) : (
-              <>
+              <div
+                className="flex items-center rounded-full transition-all"
+                style={
+                  activePerson === person.id
+                    ? { backgroundColor: person.color, border: `1px solid ${person.color}` }
+                    : { backgroundColor: `${person.color}20`, border: `1px solid ${person.color}40` }
+                }
+              >
                 <button
                   type="button"
                   onClick={() => onSelectPerson(activePerson === person.id ? null : person.id)}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all"
-                  style={
-                    activePerson === person.id
-                      ? { backgroundColor: person.color, color: "#18181b", border: `1px solid ${person.color}` }
-                      : { backgroundColor: `${person.color}20`, color: person.color, border: `1px solid ${person.color}40` }
-                  }
+                  className="flex items-center gap-1.5 py-1 pl-3 pr-1 text-xs font-medium"
+                  style={{ color: activePerson === person.id ? "#18181b" : person.color }}
                   aria-pressed={activePerson === person.id}
                 >
                   <span
@@ -88,23 +91,23 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                 </button>
                 <button
                   type="button"
-                  onClick={() => startEdit(person)}
-                  className="-ml-1 opacity-40 transition-opacity group-hover:opacity-100 text-xs"
-                  style={{ color: person.color }}
+                  onClick={(e) => { e.stopPropagation(); startEdit(person); }}
+                  className="py-1 pl-0.5 opacity-40 transition-opacity group-hover:opacity-100 text-xs"
+                  style={{ color: activePerson === person.id ? "#18181b" : person.color }}
                   aria-label={`Edit ${person.name}`}
                 >
                   ✎
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDelete(person.id)}
-                  className="-ml-1 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-70 text-xs"
-                  style={{ color: person.color }}
+                  onClick={(e) => { e.stopPropagation(); onDelete(person.id); }}
+                  className="py-1 pl-0.5 pr-2 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-70 text-xs"
+                  style={{ color: activePerson === person.id ? "#18181b" : person.color }}
                   aria-label={`Remove ${person.name}`}
                 >
                   ×
                 </button>
-              </>
+              </div>
             )}
           </div>
         ))}
