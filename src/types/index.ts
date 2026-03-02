@@ -47,31 +47,6 @@ export interface ReceiptDoc {
   createdAt: number;
 }
 
-export interface ReceiptState {
-  items: ReceiptItem[];
-  people: Person[];
-  taxTip: TaxTip;
-  imageDataUrl: string | null;
-  ocrText: string | null;
-  restaurantName: string | null;
-}
-
-export type ReceiptAction =
-  | { type: "SET_ITEMS"; items: ReceiptItem[] }
-  | { type: "ADD_ITEM"; item: ReceiptItem }
-  | { type: "UPDATE_ITEM"; id: string; updates: Partial<Omit<ReceiptItem, "id">> }
-  | { type: "DELETE_ITEM"; id: string }
-  | { type: "ADD_PERSON"; person: Person }
-  | { type: "UPDATE_PERSON"; id: string; name: string }
-  | { type: "DELETE_PERSON"; id: string }
-  | { type: "TOGGLE_ASSIGNMENT"; itemId: string; personId: string }
-  | { type: "MOVE_ITEM"; id: string; direction: "up" | "down" }
-  | { type: "SET_TAX_TIP"; taxTip: Partial<TaxTip> }
-  | { type: "SET_IMAGE"; dataUrl: string }
-  | { type: "SET_OCR_TEXT"; text: string }
-  | { type: "SET_RESTAURANT_NAME"; name: string | null }
-  | { type: "RESET" };
-
 export interface PersonBreakdown {
   person: Person;
   items: { item: ReceiptItem; shareCents: number; splitCount: number }[];

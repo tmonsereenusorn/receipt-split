@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ReceiptProvider } from "@/context/ReceiptContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,11 +33,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <ReceiptProvider>
-          <main className="mx-auto min-h-screen max-w-md px-4 py-6">
-            {children}
-          </main>
-        </ReceiptProvider>
+        <main className="mx-auto min-h-screen max-w-md px-4 py-6">
+          {children}
+        </main>
       </body>
     </html>
   );

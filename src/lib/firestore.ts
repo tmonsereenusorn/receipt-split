@@ -1,7 +1,7 @@
 import {
   doc,
-  getDoc,
   addDoc,
+  updateDoc,
   collection,
   runTransaction,
   onSnapshot,
@@ -31,18 +31,12 @@ export async function createReceipt(
     items: partial.items ?? [],
     people: partial.people ?? [],
     taxTip: partial.taxTip ?? initialTaxTip,
-    imageDataUrl: partial.imageDataUrl ?? null,
+    imageDataUrl: null,
     ocrText: partial.ocrText ?? null,
     createdAt: Date.now(),
   };
   const ref = await addDoc(collection(db, COLLECTION), data);
   return ref.id;
-}
-
-/** Check if a receipt exists. */
-export async function receiptExists(id: string): Promise<boolean> {
-  const snap = await getDoc(receiptRef(id));
-  return snap.exists();
 }
 
 /** Subscribe to real-time updates. Returns unsubscribe function. */
@@ -56,18 +50,17 @@ export function subscribeToReceipt(
     (snap) => {
       if (snap.exists()) {
         onData(snap.data() as ReceiptDoc);
+      } else {
+        onError(new Error("Receipt not found"));
       }
     },
     onError
   );
 }
 
-/** Atomic: set items array */
+/** Set items array */
 export async function fsSetItems(id: string, items: ReceiptItem[]) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    tx.update(ref, { items });
-  });
+  await updateDoc(receiptRef(id), { items });
 }
 
 /** Atomic: add item */
@@ -209,29 +202,15 @@ export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
   });
 }
 
-/** Atomic: set restaurant name */
+/** Set restaurant name */
 export async function fsSetRestaurantName(
   id: string,
   name: string | null
 ) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    tx.update(ref, { restaurantName: name });
-  });
+  await updateDoc(receiptRef(id), { restaurantName: name });
 }
 
-/** Atomic: set image */
-export async function fsSetImage(id: string, dataUrl: string) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    tx.update(ref, { imageDataUrl: dataUrl });
-  });
-}
-
-/** Atomic: set OCR text */
+/** Set OCR text */
 export async function fsSetOcrText(id: string, text: string) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    tx.update(ref, { ocrText: text });
-  });
+  await updateDoc(receiptRef(id), { ocrText: text });
 }

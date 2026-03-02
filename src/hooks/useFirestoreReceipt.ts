@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   ReceiptDoc,
   ReceiptItem,
-  Person,
   TaxTip,
   initialTaxTip,
 } from "@/types";
@@ -21,7 +20,6 @@ import {
   fsToggleAssignment,
   fsSetTaxTip,
   fsSetRestaurantName,
-  fsSetImage,
   fsSetOcrText,
 } from "@/lib/firestore";
 
@@ -137,11 +135,6 @@ export function useFirestoreReceipt(receiptId: string) {
     [receiptId]
   );
 
-  const setImage = useCallback(
-    (dataUrl: string) => { fsSetImage(receiptId, dataUrl); },
-    [receiptId]
-  );
-
   const setOcrText = useCallback(
     (text: string) => { fsSetOcrText(receiptId, text); },
     [receiptId]
@@ -167,7 +160,6 @@ export function useFirestoreReceipt(receiptId: string) {
     toggleAssignment,
     setTaxTip,
     setRestaurantName,
-    setImage,
     setOcrText,
   };
 }
