@@ -169,11 +169,40 @@ Cash Discount:
 02/27/2026 19:53 Server:Ricky
 !!! THANK YOU !!!`;
     const items = parseReceiptText(text);
-    expect(items.length).toBeGreaterThanOrEqual(5);
+    expect(items).toHaveLength(4);
     expect(items[0]).toMatchObject({
       name: "CHICKEN KARAAGE",
       priceCents: 950,
     });
+  });
+
+  it("parses prices with 0-1 decimal places", () => {
+    const items = parseReceiptText("Beer 8\nWine 12.5");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ name: "Beer", priceCents: 800 });
+    expect(items[1]).toMatchObject({ name: "Wine", priceCents: 1250 });
+  });
+
+  it("does not skip 'Gift Card' as an item", () => {
+    const items = parseReceiptText("Gift Card 25.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Gift Card", priceCents: 2500 });
+  });
+
+  it("does not skip 'Balance Bowl' as an item", () => {
+    const items = parseReceiptText("Balance Bowl 14.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Balance Bowl", priceCents: 1400 });
+  });
+
+  it("skips service charge, discount, and sales total lines", () => {
+    const text = `Burger 12.99
+20% SERVICE CHARGE: 64.41
+Cash Discount: -12.50
+SALES TOTAL: 355.38`;
+    const items = parseReceiptText(text);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("Burger");
   });
 });
 

@@ -19,7 +19,7 @@ function parseCents(priceStr: string): number | null {
     cleaned = cleaned.replace(",", ".");
   }
   const num = parseFloat(cleaned);
-  if (isNaN(num) || num <= 0) return null;
+  if (isNaN(num) || num < 0) return null;
   return Math.round(num * 100);
 }
 
@@ -58,15 +58,13 @@ const SKIP_PATTERNS = [
   /\btax\b/i,
   /\btip\b/i,
   /\bgratuity\b/i,
-  /\bchange\b/i,
-  /\bbalance\b/i,
+  /\bchange\s*due\b/i,
+  /\bbalance\s*(due|owing|forward)\b/i,
   /\bamount\s*due\b/i,
   /\bvisa\b/i,
   /\bmastercard\b/i,
   /\bcash\b/i,
-  /\bdebit\b/i,
-  /\bcredit\b/i,
-  /\bcard\b/i,
+  /\b(credit|debit)\s*card\b/i,
   /\bpayment\b/i,
   /thank\s*you/i,
   /\bguest\b/i,
@@ -80,11 +78,14 @@ const SKIP_PATTERNS = [
   /\baddress\b/i,
   /www\./i,
   /\.com/i,
-  /^\d{1,2}[/:]\d{2}/,  // timestamps
-  /^\d{1,2}-\d{1,2}-\d{2,4}/, // dates
+  /^\d{1,2}[/:]\d{2}/,
+  /^\d{1,2}-\d{1,2}-\d{2,4}/,
   /^\*+$/,
   /^-+$/,
   /^=+$/,
+  /\bservice\s*charge\b/i,
+  /\bdiscount\b/i,
+  /\bsales\s*total\b/i,
 ];
 
 function shouldSkipLine(line: string): boolean {
@@ -95,7 +96,7 @@ function shouldSkipLine(line: string): boolean {
  * Check if a line is just a price (e.g., "9.50", "$14.95")
  */
 function isPriceLine(line: string): boolean {
-  return /^\$?[\d,]+\.\d{2}\s*$/.test(line.trim());
+  return /^\$?[\d,]+(?:\.\d{1,2})?\s*$/.test(line.trim());
 }
 
 /**
@@ -122,7 +123,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 1: qty x name ... price (e.g., "2 x Burger 12.99" or "2x Burger $12.99")
     match = line.match(
-      /^(\d+)\s*[xX×]\s+(.+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^(\d+)\s*[xX×]\s+(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const qty = parseInt(match[1], 10);
@@ -141,7 +142,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 2: qty name ... price (e.g., "2 Burger 12.99")
     match = line.match(
-      /^(\d+)\s+([A-Za-z].+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^(\d+)\s+([A-Za-z].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const qty = parseInt(match[1], 10);
@@ -162,7 +163,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
-      /^([A-Za-z].+?)\s+\$?([\d,]+\.\d{2})\s*$/
+      /^([A-Za-z].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const cents = parseCents(match[2]);
