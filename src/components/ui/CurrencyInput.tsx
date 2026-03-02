@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface CurrencyInputProps {
   cents: number;
@@ -18,11 +18,11 @@ export function CurrencyInput({
   className,
 }: CurrencyInputProps) {
   const [localValue, setLocalValue] = useState((cents / 100).toFixed(2));
-  const [isFocused, setIsFocused] = useState(false);
+  const isFocused = useRef(false);
 
   useEffect(() => {
-    if (!isFocused) setLocalValue((cents / 100).toFixed(2));
-  }, [cents, isFocused]);
+    if (!isFocused.current) setLocalValue((cents / 100).toFixed(2));
+  }, [cents]);
 
   function commit() {
     const parsed = parseFloat(localValue);
@@ -42,11 +42,11 @@ export function CurrencyInput({
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onFocus={(e) => {
-        setIsFocused(true);
+        isFocused.current = true;
         e.target.select();
       }}
       onBlur={() => {
-        setIsFocused(false);
+        isFocused.current = false;
         commit();
       }}
       onKeyDown={(e) => {

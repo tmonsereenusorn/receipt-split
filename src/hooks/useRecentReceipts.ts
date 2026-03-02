@@ -35,13 +35,14 @@ export function useRecentReceipts() {
 
   useEffect(() => {
     setRecents(readRecents());
-    isInitialized.current = true;
   }, []);
 
   useEffect(() => {
-    if (isInitialized.current) {
-      writeRecents(recents);
+    if (!isInitialized.current) {
+      isInitialized.current = true;
+      return;
     }
+    writeRecents(recents);
   }, [recents]);
 
   const upsert = useCallback((id: string, name: string | null) => {

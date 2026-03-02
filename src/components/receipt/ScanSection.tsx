@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useOcr } from "@/hooks/useOcr";
 import { parseReceiptText, parseRestaurantName } from "@/lib/parser";
 import { ImageCapture } from "@/components/scan/ImageCapture";
@@ -42,7 +42,10 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
     setImageDataUrl(null);
   }
 
-  const parsedItems = ocr.result ? parseReceiptText(ocr.result) : [];
+  const parsedItems = useMemo(
+    () => (ocr.result ? parseReceiptText(ocr.result) : []),
+    [ocr.result]
+  );
 
   return (
     <Section>

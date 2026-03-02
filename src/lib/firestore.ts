@@ -54,22 +54,22 @@ export function subscribeToReceipt(
   return onSnapshot(
     receiptRef(id),
     (snap) => {
-      try {
-        onData(requireData(snap));
-      } catch (err) {
-        onError(err as Error);
+      if (!snap.exists()) {
+        onError(new Error("Receipt not found"));
+        return;
       }
+      onData(snap.data() as ReceiptDoc);
     },
     onError
   );
 }
 
-/** Set items array */
+/** Set items array (last-write-wins — existence-guarded but not merge-safe) */
 export async function fsSetItems(id: string, items: ReceiptItem[]) {
-  const ref = doc(db, "receipts", id);
+  const ref = receiptRef(id);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
-    requireData(snap); // ensure doc exists
+    requireData(snap);
     tx.update(ref, { items });
   });
 }
