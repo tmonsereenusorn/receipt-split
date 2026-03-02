@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ReceiptItem, Person } from "@/types";
 import { formatCents } from "@/lib/format";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -34,6 +34,15 @@ export function ItemRow({
   const prevName = useRef(item.name);
   const prevQty = useRef(item.quantity);
 
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipeOpen, setIsSwipeOpen] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const isTouching = useRef(false);
+  const swipeDirection = useRef<"none" | "horizontal" | "vertical">("none");
+  const DELETE_ZONE_WIDTH = 72;
+  const SWIPE_THRESHOLD = 50;
+
   useEffect(() => {
     if (!isNameFocused.current && item.name !== prevName.current) {
       setLocalName(item.name);
@@ -47,6 +56,54 @@ export function ItemRow({
     }
     prevQty.current = item.quantity;
   }, [item.quantity]);
+
+  useEffect(() => {
+    setSwipeOffset(0);
+    setIsSwipeOpen(false);
+  }, [isExpanded, activePerson]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (activePerson || isExpanded) return;
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    swipeDirection.current = "none";
+    isTouching.current = true;
+  }, [activePerson, isExpanded]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (activePerson || isExpanded || !isTouching.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX.current;
+    const dy = touch.clientY - touchStartY.current;
+
+    if (swipeDirection.current === "none") {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        swipeDirection.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+      }
+      return;
+    }
+
+    if (swipeDirection.current === "vertical") return;
+
+    const base = isSwipeOpen ? -DELETE_ZONE_WIDTH : 0;
+    const raw = base + dx;
+    const clamped = Math.max(-DELETE_ZONE_WIDTH, Math.min(0, raw));
+    setSwipeOffset(clamped);
+  }, [activePerson, isExpanded, isSwipeOpen]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (activePerson || isExpanded) return;
+    isTouching.current = false;
+    if (swipeDirection.current !== "horizontal") return;
+    if (Math.abs(swipeOffset) > SWIPE_THRESHOLD) {
+      setSwipeOffset(-DELETE_ZONE_WIDTH);
+      setIsSwipeOpen(true);
+    } else {
+      setSwipeOffset(0);
+      setIsSwipeOpen(false);
+    }
+  }, [activePerson, isExpanded, swipeOffset]);
 
   const total = item.quantity * item.priceCents;
   const isUnassigned = people.length > 0 && item.assignedTo.length === 0;
@@ -65,49 +122,83 @@ export function ItemRow({
             : "transparent",
       }}
     >
-      {/* Collapsed row: receipt line */}
-      <button
-        type="button"
-        onClick={() => {
-          if (activePerson) {
-            onToggleAssignment(item.id, activePerson);
-          } else {
-            onToggleExpand();
-          }
-        }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50"
-      >
-        {/* Quantity */}
-        <span className="w-6 shrink-0 font-mono text-xs text-zinc-500">
-          {item.quantity}×
-        </span>
-
-        {/* Name */}
-        <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
-          {item.name}
-        </span>
-
-        {/* Assigned dots */}
-        {!isExpanded && item.assignedTo.length > 0 && (
-          <span className="flex shrink-0 gap-0.5">
-            {item.assignedTo.map((pid) => {
-              const person = people.find((p) => p.id === pid);
-              return person ? (
-                <span
-                  key={pid}
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: person.color }}
-                />
-              ) : null;
-            })}
-          </span>
+      {/* Swipe container */}
+      <div className="relative overflow-hidden">
+        {/* Delete zone (revealed on swipe) */}
+        {swipeOffset < 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onDelete(item.id);
+              setSwipeOffset(0);
+              setIsSwipeOpen(false);
+            }}
+            className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-600 px-5 text-white transition-colors hover:bg-red-500"
+            style={{ width: DELETE_ZONE_WIDTH }}
+            aria-label="Delete item"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+            </svg>
+          </button>
         )}
 
-        {/* Price */}
-        <span className="shrink-0 font-mono text-sm text-zinc-300">
-          {formatCents(total)}
-        </span>
-      </button>
+        {/* Slideable row content */}
+        <button
+          type="button"
+          onClick={() => {
+            if (isSwipeOpen) {
+              setSwipeOffset(0);
+              setIsSwipeOpen(false);
+              return;
+            }
+            if (activePerson) {
+              onToggleAssignment(item.id, activePerson);
+            } else {
+              onToggleExpand();
+            }
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50 relative bg-zinc-900"
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: isTouching.current ? "none" : "transform 200ms ease-out",
+          }}
+        >
+          {/* Quantity */}
+          <span className="w-6 shrink-0 font-mono text-xs text-zinc-500">
+            {item.quantity}×
+          </span>
+
+          {/* Name */}
+          <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
+            {item.name}
+          </span>
+
+          {/* Assigned dots */}
+          {!isExpanded && item.assignedTo.length > 0 && (
+            <span className="flex shrink-0 gap-0.5">
+              {item.assignedTo.map((pid) => {
+                const person = people.find((p) => p.id === pid);
+                return person ? (
+                  <span
+                    key={pid}
+                    className="inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: person.color }}
+                  />
+                ) : null;
+              })}
+            </span>
+          )}
+
+          {/* Price */}
+          <span className="shrink-0 font-mono text-sm text-zinc-300">
+            {formatCents(total)}
+          </span>
+        </button>
+      </div>
 
       {/* Expanded: edit + assignment */}
       {isExpanded && (
