@@ -1,8 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect } from "react";
 import Link from "next/link";
 import { useFirestoreReceipt } from "@/hooks/useFirestoreReceipt";
+import { useRecentReceipts } from "@/hooks/useRecentReceipts";
 import { calculateBreakdowns } from "@/lib/calculator";
 import { generateShareText, generateCsv } from "@/lib/format";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
@@ -22,6 +23,13 @@ export default function CollaborativeReceiptPage({
 }) {
   const { id } = use(params);
   const receipt = useFirestoreReceipt(id);
+  const { upsert: upsertRecent } = useRecentReceipts();
+
+  useEffect(() => {
+    if (!receipt.loading && !receipt.error) {
+      upsertRecent(id, receipt.restaurantName);
+    }
+  }, [id, receipt.loading, receipt.error, receipt.restaurantName, upsertRecent]);
 
   if (receipt.loading) {
     return (
