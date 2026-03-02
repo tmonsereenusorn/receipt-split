@@ -62,20 +62,21 @@ export function ItemRow({
     setIsSwipeOpen(false);
   }, [isExpanded, activePerson]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const didSwipe = useRef(false);
+
+  const handlePointerStart = useCallback((clientX: number, clientY: number) => {
     if (activePerson || isExpanded) return;
-    const touch = e.touches[0];
-    touchStartX.current = touch.clientX;
-    touchStartY.current = touch.clientY;
+    touchStartX.current = clientX;
+    touchStartY.current = clientY;
     swipeDirection.current = "none";
     isTouching.current = true;
+    didSwipe.current = false;
   }, [activePerson, isExpanded]);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handlePointerMove = useCallback((clientX: number, clientY: number) => {
     if (activePerson || isExpanded || !isTouching.current) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - touchStartX.current;
-    const dy = touch.clientY - touchStartY.current;
+    const dx = clientX - touchStartX.current;
+    const dy = clientY - touchStartY.current;
 
     if (swipeDirection.current === "none") {
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
@@ -86,13 +87,14 @@ export function ItemRow({
 
     if (swipeDirection.current === "vertical") return;
 
+    didSwipe.current = true;
     const base = isSwipeOpen ? -DELETE_ZONE_WIDTH : 0;
     const raw = base + dx;
     const clamped = Math.max(-DELETE_ZONE_WIDTH, Math.min(0, raw));
     setSwipeOffset(clamped);
   }, [activePerson, isExpanded, isSwipeOpen]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handlePointerEnd = useCallback(() => {
     if (activePerson || isExpanded) return;
     isTouching.current = false;
     if (swipeDirection.current !== "horizontal") return;
@@ -104,6 +106,36 @@ export function ItemRow({
       setIsSwipeOpen(false);
     }
   }, [activePerson, isExpanded, swipeOffset]);
+
+  // Touch handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    handlePointerStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, [handlePointerStart]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, [handlePointerMove]);
+
+  const handleTouchEnd = useCallback(() => {
+    handlePointerEnd();
+  }, [handlePointerEnd]);
+
+  // Mouse handlers (for desktop)
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (activePerson || isExpanded) return;
+    handlePointerStart(e.clientX, e.clientY);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      handlePointerMove(ev.clientX, ev.clientY);
+    };
+    const onMouseUp = () => {
+      handlePointerEnd();
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [activePerson, isExpanded, handlePointerStart, handlePointerMove, handlePointerEnd]);
 
   const total = item.quantity * item.priceCents;
   const isUnassigned = people.length > 0 && item.assignedTo.length === 0;
@@ -147,6 +179,7 @@ export function ItemRow({
         <button
           type="button"
           onClick={() => {
+            if (didSwipe.current) return;
             if (isSwipeOpen) {
               setSwipeOffset(0);
               setIsSwipeOpen(false);
@@ -161,6 +194,7 @@ export function ItemRow({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
           className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50 relative bg-zinc-900"
           style={{
             transform: `translateX(${swipeOffset}px)`,
