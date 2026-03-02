@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceipt } from "@/lib/firestore";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
-import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
 import { RecentSection } from "@/components/receipt/RecentSection";
@@ -55,7 +54,15 @@ export default function LandingPage() {
 
   return (
     <ReceiptTape>
-      <ReceiptHeader />
+      <div className="py-8 text-center">
+        <h1 className="font-mono text-3xl font-bold uppercase tracking-[0.3em] text-amber-500">
+          Shplit
+        </h1>
+        <p className="mt-1 font-mono text-xs text-zinc-600">split any receipt</p>
+        <div className="mt-3 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
+          ================================
+        </div>
+      </div>
       {error && (
         <p className="py-2 text-center font-mono text-xs text-red-400">{error}</p>
       )}
