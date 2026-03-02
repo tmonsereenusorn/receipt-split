@@ -21,7 +21,11 @@ function readRecents(): RecentReceipt[] {
 }
 
 function writeRecents(recents: RecentReceipt[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(recents));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(recents));
+  } catch {
+    // Quota exceeded or unavailable — state is still updated in memory
+  }
 }
 
 export function useRecentReceipts() {
