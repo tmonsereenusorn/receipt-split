@@ -119,4 +119,64 @@ describe("parseReceiptText", () => {
     expect(items).toHaveLength(1);
     expect(items[0].name).toBe("Grilled Chicken Sandwich");
   });
+
+  it("parses multi-line name/price pairs (Google Vision format)", () => {
+    const text = `CHICKEN KARAAGE\n9.50\nMISO SALMON ROLL\n14.95`;
+    const items = parseReceiptText(text);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      name: "CHICKEN KARAAGE",
+      quantity: 1,
+      priceCents: 950,
+    });
+    expect(items[1]).toMatchObject({
+      name: "MISO SALMON ROLL",
+      quantity: 1,
+      priceCents: 1495,
+    });
+  });
+
+  it("skips multi-line noise (subtotal on separate line)", () => {
+    const text = `CRAZY ROLL\n15.75\nSUBTOTAL:\n322.05`;
+    const items = parseReceiptText(text);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("CRAZY ROLL");
+  });
+
+  it("handles real Google Vision receipt output", () => {
+    const text = `Wasabi Bistro
+524 Castro St. San Francisco,, CA 94114
+415-701-0082
+Tab
+AB 10P 19:23
+#1040
+CHICKEN KARAAGE
+9.50
+MISO SALMON ROLL
+14.95
+CRAZY ROLL
+15.75
+BOSTON ROLL
+8.60
+SUBTOTAL:
+322.05
+20% SERVICE CHARGE:
+64.41
+Tax (3.625%):
+33.33
+SALES TOTAL:
+355.38
+Credit card
+419.79
+Cash Discount:
+-12.50
+02/27/2026 19:53 Server:Ricky
+!!! THANK YOU !!!`;
+    const items = parseReceiptText(text);
+    expect(items.length).toBeGreaterThanOrEqual(5);
+    expect(items[0]).toMatchObject({
+      name: "CHICKEN KARAAGE",
+      priceCents: 950,
+    });
+  });
 });

@@ -74,16 +74,31 @@ function shouldSkipLine(line: string): boolean {
 }
 
 /**
+ * Check if a line is just a price (e.g., "9.50", "$14.95")
+ */
+function isPriceLine(line: string): boolean {
+  return /^\$?[\d,]+\.\d{2}\s*$/.test(line.trim());
+}
+
+/**
+ * Check if a line looks like an item name (starts with a letter, no trailing price)
+ */
+function isNameLine(line: string): boolean {
+  return /^[A-Za-z]/.test(line.trim()) && !isPriceLine(line);
+}
+
+/**
  * Multi-pattern receipt line parser.
  * Intentionally lenient — better to include a dubious line than miss a real item.
+ * Supports both single-line (name + price) and multi-line (name on one line, price on next).
  */
 export function parseReceiptText(text: string): ReceiptItem[] {
   resetIdCounter();
   const lines = text.split("\n");
   const items: ReceiptItem[] = [];
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
     if (!line || shouldSkipLine(line)) continue;
 
     let match: RegExpMatchArray | null;
@@ -143,6 +158,26 @@ export function parseReceiptText(text: string): ReceiptItem[] {
           assignedTo: [],
         });
         continue;
+      }
+    }
+
+    // Pattern 4: Multi-line — name on this line, price on next line
+    // Google Vision often splits these across lines
+    if (isNameLine(line) && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (isPriceLine(nextLine) && !shouldSkipLine(line)) {
+        const cents = parseCents(nextLine.replace(/^\$/, ""));
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name: line,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          i++; // skip the price line
+          continue;
+        }
       }
     }
   }
