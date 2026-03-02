@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const STORAGE_KEY = "shplit:recent";
 const MAX_ENTRIES = 10;
@@ -29,7 +29,11 @@ function writeRecents(recents: RecentReceipt[]) {
 }
 
 export function useRecentReceipts() {
-  const [recents, setRecents] = useState<RecentReceipt[]>(readRecents);
+  const [recents, setRecents] = useState<RecentReceipt[]>([]);
+
+  useEffect(() => {
+    setRecents(readRecents());
+  }, []);
 
   const upsert = useCallback((id: string, name: string | null) => {
     setRecents((prev) => {
