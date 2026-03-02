@@ -161,6 +161,25 @@ export function parseReceiptText(text: string): ReceiptItem[] {
       }
     }
 
+    // Pattern 5: name qty @ unit_price [total] (e.g., "Coffee 2 @ $4.50 $9.00")
+    match = line.match(
+      /^(.+?)\s+(\d+)\s*@\s*\$?([\d,]+(?:\.\d{1,2})?)(?:\s+\$?[\d,]+(?:\.\d{1,2})?)?\s*$/
+    );
+    if (match) {
+      const qty = parseInt(match[2], 10);
+      const cents = parseCents(match[3]);
+      if (cents !== null && qty >= 1 && qty <= 99) {
+        items.push({
+          id: makeId(),
+          name: match[1].trim(),
+          quantity: qty,
+          priceCents: cents,
+          assignedTo: [],
+        });
+        continue;
+      }
+    }
+
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
       /^([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/

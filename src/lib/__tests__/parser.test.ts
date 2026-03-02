@@ -219,6 +219,16 @@ SALES TOTAL: 355.38`;
       priceCents: 950,
     });
   });
+
+  it("parses @ quantity separator (unit price)", () => {
+    const items = parseReceiptText("Coffee 2 @ $4.50 $9.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Coffee",
+      quantity: 2,
+      priceCents: 450,
+    });
+  });
 });
 
 describe("parseRestaurantName", () => {
