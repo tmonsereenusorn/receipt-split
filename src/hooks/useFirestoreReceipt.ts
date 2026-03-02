@@ -23,10 +23,7 @@ import {
   fsSetOcrText,
 } from "@/lib/firestore";
 
-const COLORS = [
-  "#22d3ee", "#a78bfa", "#fb7185", "#34d399",
-  "#fb923c", "#38bdf8", "#e879f9", "#a3e635",
-];
+import { PERSON_COLORS } from "@/lib/constants";
 
 export function useFirestoreReceipt(receiptId: string) {
   const [data, setData] = useState<ReceiptDoc | null>(null);
@@ -98,7 +95,7 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const addPerson = useCallback(
     (name: string) => {
-      const color = COLORS[people.length % COLORS.length];
+      const color = PERSON_COLORS[people.length % PERSON_COLORS.length];
       fsAddPerson(receiptId, {
         id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name,

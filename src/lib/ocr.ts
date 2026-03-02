@@ -13,11 +13,20 @@ export async function recognizeImage(image: File | string): Promise<string> {
     body: JSON.stringify({ image: base64DataUrl }),
   });
 
-  const data = await response.json();
-
   if (!response.ok) {
-    throw new Error(data.error || "OCR failed");
+    let message = "OCR failed";
+    try {
+      const body = await response.json();
+      message = body.error || message;
+    } catch {
+      message = `OCR failed (HTTP ${response.status})`;
+    }
+    throw new Error(message);
   }
 
+  const data = await response.json();
+  if (typeof data.text !== "string") {
+    throw new Error("OCR response missing text field");
+  }
   return data.text;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Section } from "./Section";
 
 interface ShareSectionProps {
@@ -11,11 +11,7 @@ interface ShareSectionProps {
 export function ShareSection({ shareText, csvText }: ShareSectionProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
-  const [canShare, setCanShare] = useState(false);
-
-  useEffect(() => {
-    setCanShare(typeof navigator !== "undefined" && "share" in navigator);
-  }, []);
+  const [canShare] = useState(() => typeof navigator !== "undefined" && "share" in navigator);
 
   const hasExportData = !!shareText;
 

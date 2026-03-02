@@ -6,6 +6,7 @@ import {
   runTransaction,
   onSnapshot,
   type Unsubscribe,
+  type DocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -17,6 +18,11 @@ import {
 } from "@/types";
 
 const COLLECTION = "receipts";
+
+function requireData(snap: DocumentSnapshot): ReceiptDoc {
+  if (!snap.exists()) throw new Error("Receipt not found");
+  return snap.data() as ReceiptDoc;
+}
 
 function receiptRef(id: string) {
   return doc(db, COLLECTION, id);
@@ -31,7 +37,7 @@ export async function createReceipt(
     items: partial.items ?? [],
     people: partial.people ?? [],
     taxTip: partial.taxTip ?? initialTaxTip,
-    imageDataUrl: null,
+    imageDataUrl: partial.imageDataUrl ?? null,
     ocrText: partial.ocrText ?? null,
     createdAt: Date.now(),
   };
@@ -48,19 +54,24 @@ export function subscribeToReceipt(
   return onSnapshot(
     receiptRef(id),
     (snap) => {
-      if (snap.exists()) {
-        onData(snap.data() as ReceiptDoc);
-      } else {
+      if (!snap.exists()) {
         onError(new Error("Receipt not found"));
+        return;
       }
+      onData(snap.data() as ReceiptDoc);
     },
     onError
   );
 }
 
-/** Set items array */
+/** Set items array (last-write-wins — existence-guarded but not merge-safe) */
 export async function fsSetItems(id: string, items: ReceiptItem[]) {
-  await updateDoc(receiptRef(id), { items });
+  const ref = receiptRef(id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    requireData(snap);
+    tx.update(ref, { items });
+  });
 }
 
 /** Atomic: add item */
@@ -68,7 +79,7 @@ export async function fsAddItem(id: string, item: ReceiptItem) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, { items: [...data.items, item] });
   });
 }
@@ -82,7 +93,7 @@ export async function fsUpdateItem(
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, {
       items: data.items.map((item) =>
         item.id === itemId ? { ...item, ...updates } : item
@@ -96,7 +107,7 @@ export async function fsDeleteItem(id: string, itemId: string) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, {
       items: data.items.filter((item) => item.id !== itemId),
     });
@@ -112,7 +123,7 @@ export async function fsMoveItem(
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     const items = [...data.items];
     const idx = items.findIndex((i) => i.id === itemId);
     if (idx === -1) return;
@@ -128,7 +139,7 @@ export async function fsAddPerson(id: string, person: Person) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, { people: [...data.people, person] });
   });
 }
@@ -142,7 +153,7 @@ export async function fsUpdatePerson(
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, {
       people: data.people.map((p) =>
         p.id === personId ? { ...p, name } : p
@@ -156,7 +167,7 @@ export async function fsDeletePerson(id: string, personId: string) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, {
       people: data.people.filter((p) => p.id !== personId),
       items: data.items.map((item) => ({
@@ -176,7 +187,7 @@ export async function fsToggleAssignment(
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, {
       items: data.items.map((item) => {
         if (item.id !== itemId) return item;
@@ -197,7 +208,7 @@ export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = snap.data() as ReceiptDoc;
+    const data = requireData(snap);
     tx.update(ref, { taxTip: { ...data.taxTip, ...taxTip } });
   });
 }
@@ -211,6 +222,6 @@ export async function fsSetRestaurantName(
 }
 
 /** Set OCR text */
-export async function fsSetOcrText(id: string, text: string) {
+export async function fsSetOcrText(id: string, text: string | null) {
   await updateDoc(receiptRef(id), { ocrText: text });
 }
