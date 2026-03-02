@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 interface CurrencyInputProps {
   cents: number;
@@ -19,14 +19,9 @@ export function CurrencyInput({
 }: CurrencyInputProps) {
   const [localValue, setLocalValue] = useState((cents / 100).toFixed(2));
   const [isFocused, setIsFocused] = useState(false);
-  const prevCents = useRef(cents);
 
-  // Sync from parent when not focused and cents actually changed externally
   useEffect(() => {
-    if (!isFocused && cents !== prevCents.current) {
-      setLocalValue((cents / 100).toFixed(2));
-    }
-    prevCents.current = cents;
+    if (!isFocused) setLocalValue((cents / 100).toFixed(2));
   }, [cents, isFocused]);
 
   function commit() {

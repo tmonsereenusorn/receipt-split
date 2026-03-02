@@ -24,14 +24,9 @@ export function ReceiptHeader({ restaurantName, onChangeName }: ReceiptHeaderPro
   const displayName = restaurantName || "Shplit";
   const [localName, setLocalName] = useState(displayName);
   const isFocused = useRef(false);
-  const prevName = useRef(displayName);
 
   useEffect(() => {
-    const name = restaurantName || "Shplit";
-    if (!isFocused.current && name !== prevName.current) {
-      setLocalName(name);
-    }
-    prevName.current = name;
+    if (!isFocused.current) setLocalName(restaurantName || "Shplit");
   }, [restaurantName]);
 
   return (

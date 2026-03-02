@@ -8,7 +8,7 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatCents } from "@/lib/format";
-import { ReceiptItem } from "@/types";
+import type { ReceiptItem } from "@/types";
 
 export interface ScanResult {
   items: ReceiptItem[];
@@ -25,7 +25,6 @@ interface ScanSectionProps {
 export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
   const ocr = useOcr();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [parsedItems, setParsedItems] = useState<ReceiptItem[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCapture(file: File, dataUrl: string) {
@@ -35,15 +34,15 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
     if (text) {
       const items = parseReceiptText(text);
       const restaurantName = parseRestaurantName(text);
-      setParsedItems(items);
       onScanResult({ items, restaurantName, ocrText: text, imageDataUrl: dataUrl });
     }
   }
 
   function handleRetake() {
     setImageDataUrl(null);
-    setParsedItems([]);
   }
+
+  const parsedItems = ocr.result ? parseReceiptText(ocr.result) : [];
 
   return (
     <Section>

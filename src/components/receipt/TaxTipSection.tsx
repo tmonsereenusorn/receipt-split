@@ -35,13 +35,9 @@ function PercentOrDollarInput({
   const [expanded, setExpanded] = useState(false);
   const [localPercent, setLocalPercent] = useState(String(percent));
   const isPercentFocused = useRef(false);
-  const prevPercent = useRef(percent);
 
   useEffect(() => {
-    if (!isPercentFocused.current && percent !== prevPercent.current) {
-      setLocalPercent(String(percent));
-    }
-    prevPercent.current = percent;
+    if (!isPercentFocused.current) setLocalPercent(String(percent));
   }, [percent]);
 
   const displayValue = isPercent ? `${percent}%` : `$${(cents / 100).toFixed(2)}`;
