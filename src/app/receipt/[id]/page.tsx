@@ -25,18 +25,15 @@ export default function CollaborativeReceiptPage({
   const receipt = useFirestoreReceipt(id);
   const { upsert: upsertRecent } = useRecentReceipts();
   const [activePerson, setActivePerson] = useState<string | null>(null);
+  const resolvedActivePerson = activePerson && receipt.people.some(p => p.id === activePerson)
+    ? activePerson : null;
 
   useEffect(() => {
     if (!receipt.loading && !receipt.error) {
       upsertRecent(id, receipt.restaurantName);
     }
-  }, [id, receipt.loading, receipt.error, receipt.restaurantName, upsertRecent]);
-
-  useEffect(() => {
-    if (activePerson && !receipt.people.some((p) => p.id === activePerson)) {
-      setActivePerson(null);
-    }
-  }, [activePerson, receipt.people]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, receipt.loading]);
 
   if (receipt.loading) {
     return (
@@ -99,12 +96,11 @@ export default function CollaborativeReceiptPage({
         <PeopleSection
           people={receipt.people}
           items={receipt.items}
-          activePerson={activePerson}
+          activePerson={resolvedActivePerson}
           onSelectPerson={setActivePerson}
           onAdd={receipt.addPerson}
           onUpdate={receipt.updatePerson}
           onDelete={(id) => {
-            if (activePerson === id) setActivePerson(null);
             receipt.deletePerson(id);
           }}
         />
@@ -115,7 +111,7 @@ export default function CollaborativeReceiptPage({
           <ItemsSection
             items={receipt.items}
             people={receipt.people}
-            activePerson={activePerson}
+            activePerson={resolvedActivePerson}
             onUpdate={receipt.updateItem}
             onDelete={receipt.deleteItem}
             onToggleAssignment={receipt.toggleAssignment}
