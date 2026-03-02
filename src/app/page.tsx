@@ -58,10 +58,6 @@ export default function LandingPage() {
         <h1 className="font-mono text-3xl font-bold uppercase tracking-[0.3em] text-amber-500">
           Shplit
         </h1>
-        <p className="mt-1 font-mono text-xs text-zinc-600">split any receipt</p>
-        <div className="mt-3 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
-          ================================
-        </div>
       </div>
       {error && (
         <p className="py-2 text-center font-mono text-xs text-red-400">{error}</p>
