@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useReceipt } from "@/hooks/useReceipt";
 import { useOcr } from "@/hooks/useOcr";
 import { parseReceiptText, parseRestaurantName } from "@/lib/parser";
 import { ImageCapture } from "@/components/scan/ImageCapture";
@@ -9,35 +8,40 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatCents } from "@/lib/format";
+import { ReceiptItem } from "@/types";
+
+export interface ScanResult {
+  items: ReceiptItem[];
+  restaurantName: string | null;
+  ocrText: string;
+  imageDataUrl: string;
+}
 
 interface ScanSectionProps {
-  onComplete: () => void;
+  onScanResult: (result: ScanResult) => void;
   onSkip: () => void;
 }
 
-export function ScanSection({ onComplete, onSkip }: ScanSectionProps) {
-  const receipt = useReceipt();
+export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
   const ocr = useOcr();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [parsedItems, setParsedItems] = useState<ReceiptItem[]>([]);
 
   async function handleCapture(file: File, dataUrl: string) {
     setImageDataUrl(dataUrl);
-    receipt.setImage(dataUrl);
 
     const text = await ocr.recognize(file);
     if (text) {
-      receipt.setOcrText(text);
-      receipt.setRestaurantName(parseRestaurantName(text));
       const items = parseReceiptText(text);
-      if (items.length > 0) {
-        receipt.setItems(items);
-      }
-      onComplete();
+      const restaurantName = parseRestaurantName(text);
+      setParsedItems(items);
+      onScanResult({ items, restaurantName, ocrText: text, imageDataUrl: dataUrl });
     }
   }
 
   function handleRetake() {
     setImageDataUrl(null);
+    setParsedItems([]);
   }
 
   return (
@@ -61,9 +65,9 @@ export function ScanSection({ onComplete, onSkip }: ScanSectionProps) {
       {ocr.result && !ocr.isProcessing && (
         <div className="space-y-2 py-2">
           <div className="font-mono text-xs text-green-500">
-            ✓ {receipt.items.length} item{receipt.items.length !== 1 ? "s" : ""} detected
+            ✓ {parsedItems.length} item{parsedItems.length !== 1 ? "s" : ""} detected
           </div>
-          {receipt.items.map((item) => (
+          {parsedItems.map((item) => (
             <div
               key={item.id}
               className="flex justify-between font-mono text-xs text-zinc-400"
