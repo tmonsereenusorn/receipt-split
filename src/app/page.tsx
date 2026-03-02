@@ -55,7 +55,7 @@ export default function LandingPage() {
   return (
     <ReceiptTape>
       <div className="py-8 text-center">
-        <h1 className="font-mono text-3xl font-bold uppercase tracking-[0.3em] text-amber-500">
+        <h1 className="font-mono text-5xl font-bold uppercase tracking-[0.3em] text-zinc-100">
           Shplit
         </h1>
       </div>

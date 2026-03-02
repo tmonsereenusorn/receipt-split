@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useOcr } from "@/hooks/useOcr";
 import { parseReceiptText, parseRestaurantName } from "@/lib/parser";
 import { ImageCapture } from "@/components/scan/ImageCapture";
@@ -26,6 +26,7 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
   const ocr = useOcr();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ReceiptItem[]>([]);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCapture(file: File, dataUrl: string) {
     setImageDataUrl(dataUrl);
@@ -80,13 +81,36 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
       )}
 
       {!ocr.isProcessing && !ocr.result && (
-        <button
-          type="button"
-          onClick={onSkip}
-          className="block w-full py-1 text-center text-xs text-zinc-600 hover:text-zinc-400"
-        >
-          skip scan, enter items manually →
-        </button>
+        <div className="flex gap-2 px-4 pb-2">
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => handleCapture(file, reader.result as string);
+              reader.readAsDataURL(file);
+            }}
+            className="hidden"
+            aria-label="Choose image from gallery"
+          />
+          <button
+            type="button"
+            onClick={() => galleryInputRef.current?.click()}
+            className="flex-1 rounded border border-zinc-700 px-4 py-2 font-mono text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+          >
+            gallery
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="flex-1 rounded border border-zinc-700 px-4 py-2 font-mono text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+          >
+            manual entry
+          </button>
+        </div>
       )}
     </Section>
   );

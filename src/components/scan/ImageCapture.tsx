@@ -39,21 +39,6 @@ export function ImageCapture({ onCapture }: ImageCaptureProps) {
         <div className="font-mono text-sm text-amber-500">[ SCAN RECEIPT ]</div>
         <div className="mt-1 text-xs text-zinc-500">tap to take a photo</div>
       </button>
-      <button
-        type="button"
-        onClick={() => {
-          if (inputRef.current) {
-            inputRef.current.removeAttribute("capture");
-            inputRef.current.click();
-            setTimeout(() => {
-              inputRef.current?.setAttribute("capture", "environment");
-            }, 1000);
-          }
-        }}
-        className="text-xs text-zinc-500 hover:text-zinc-300"
-      >
-        or choose from gallery
-      </button>
     </div>
   );
 }
