@@ -59,8 +59,3 @@ export interface PersonBreakdown {
   tipShareCents: number;
   totalCents: number;
 }
-
-export interface OcrProgress {
-  status: string;
-  progress: number;
-}
