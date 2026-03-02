@@ -3,13 +3,9 @@
 import {
   createContext,
   useReducer,
-  useEffect,
-  useRef,
   type ReactNode,
 } from "react";
-import { ReceiptState, ReceiptAction, TaxTip, initialTaxTip } from "@/types";
-
-const STORAGE_KEY = "receipt-split-state";
+import { ReceiptState, ReceiptAction, initialTaxTip } from "@/types";
 
 const initialState: ReceiptState = {
   items: [],
@@ -27,10 +23,8 @@ function receiptReducer(
   switch (action.type) {
     case "SET_ITEMS":
       return { ...state, items: action.items };
-
     case "ADD_ITEM":
       return { ...state, items: [...state.items, action.item] };
-
     case "UPDATE_ITEM":
       return {
         ...state,
@@ -38,16 +32,13 @@ function receiptReducer(
           item.id === action.id ? { ...item, ...action.updates } : item
         ),
       };
-
     case "DELETE_ITEM":
       return {
         ...state,
         items: state.items.filter((item) => item.id !== action.id),
       };
-
     case "ADD_PERSON":
       return { ...state, people: [...state.people, action.person] };
-
     case "UPDATE_PERSON":
       return {
         ...state,
@@ -55,7 +46,6 @@ function receiptReducer(
           p.id === action.id ? { ...p, name: action.name } : p
         ),
       };
-
     case "DELETE_PERSON": {
       return {
         ...state,
@@ -66,7 +56,6 @@ function receiptReducer(
         })),
       };
     }
-
     case "TOGGLE_ASSIGNMENT": {
       return {
         ...state,
@@ -82,7 +71,6 @@ function receiptReducer(
         }),
       };
     }
-
     case "MOVE_ITEM": {
       const items = [...state.items];
       const idx = items.findIndex((i) => i.id === action.id);
@@ -92,25 +80,19 @@ function receiptReducer(
       [items[idx], items[swap]] = [items[swap], items[idx]];
       return { ...state, items };
     }
-
     case "SET_TAX_TIP":
       return {
         ...state,
         taxTip: { ...state.taxTip, ...action.taxTip },
       };
-
     case "SET_IMAGE":
       return { ...state, imageDataUrl: action.dataUrl };
-
     case "SET_OCR_TEXT":
       return { ...state, ocrText: action.text };
-
     case "SET_RESTAURANT_NAME":
       return { ...state, restaurantName: action.name };
-
     case "RESET":
       return initialState;
-
     default:
       return state;
   }
@@ -124,36 +106,8 @@ export const ReceiptContext = createContext<{
   dispatch: () => undefined,
 });
 
-function loadState(): ReceiptState {
-  if (typeof window === "undefined") return initialState;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return { ...initialState, ...parsed };
-    }
-  } catch {
-    // ignore
-  }
-  return initialState;
-}
-
 export function ReceiptProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(receiptReducer, initialState, loadState);
-  const isInitialized = useRef(false);
-
-  useEffect(() => {
-    // Skip first render (the init from loadState already ran)
-    if (!isInitialized.current) {
-      isInitialized.current = true;
-      return;
-    }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // storage full or unavailable
-    }
-  }, [state]);
+  const [state, dispatch] = useReducer(receiptReducer, initialState);
 
   return (
     <ReceiptContext.Provider value={{ state, dispatch }}>
