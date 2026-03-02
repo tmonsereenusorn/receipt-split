@@ -8,6 +8,7 @@ import { ItemRow } from "./ItemRow";
 interface ItemsSectionProps {
   items: ReceiptItem[];
   people: Person[];
+  activePerson: string | null;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
@@ -17,6 +18,7 @@ interface ItemsSectionProps {
 export function ItemsSection({
   items,
   people,
+  activePerson,
   onUpdate,
   onDelete,
   onToggleAssignment,
@@ -50,6 +52,7 @@ export function ItemsSection({
               key={item.id}
               item={item}
               people={people}
+              activePerson={activePerson}
               isExpanded={expandedId === item.id}
               onToggleExpand={() =>
                 setExpandedId(expandedId === item.id ? null : item.id)

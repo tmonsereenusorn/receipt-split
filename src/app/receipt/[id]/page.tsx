@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useFirestoreReceipt } from "@/hooks/useFirestoreReceipt";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
@@ -24,6 +24,7 @@ export default function CollaborativeReceiptPage({
   const { id } = use(params);
   const receipt = useFirestoreReceipt(id);
   const { upsert: upsertRecent } = useRecentReceipts();
+  const [activePerson, setActivePerson] = useState<string | null>(null);
 
   useEffect(() => {
     if (!receipt.loading && !receipt.error) {
@@ -92,6 +93,8 @@ export default function CollaborativeReceiptPage({
         <PeopleSection
           people={receipt.people}
           items={receipt.items}
+          activePerson={activePerson}
+          onSelectPerson={setActivePerson}
           onAdd={receipt.addPerson}
           onUpdate={receipt.updatePerson}
           onDelete={receipt.deletePerson}
@@ -103,6 +106,7 @@ export default function CollaborativeReceiptPage({
           <ItemsSection
             items={receipt.items}
             people={receipt.people}
+            activePerson={activePerson}
             onUpdate={receipt.updateItem}
             onDelete={receipt.deleteItem}
             onToggleAssignment={receipt.toggleAssignment}

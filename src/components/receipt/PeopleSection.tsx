@@ -7,12 +7,14 @@ import { Section } from "./Section";
 interface PeopleSectionProps {
   people: Person[];
   items: ReceiptItem[];
+  activePerson: string | null;
+  onSelectPerson: (id: string | null) => void;
   onAdd: (name: string) => void;
   onUpdate: (id: string, name: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function PeopleSection({ people, items, onAdd, onUpdate, onDelete }: PeopleSectionProps) {
+export function PeopleSection({ people, items, activePerson, onSelectPerson, onAdd, onUpdate, onDelete }: PeopleSectionProps) {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");

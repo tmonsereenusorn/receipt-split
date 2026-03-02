@@ -8,6 +8,7 @@ import { CurrencyInput } from "@/components/ui/CurrencyInput";
 interface ItemRowProps {
   item: ReceiptItem;
   people: Person[];
+  activePerson: string | null;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
@@ -18,6 +19,7 @@ interface ItemRowProps {
 export function ItemRow({
   item,
   people,
+  activePerson,
   isExpanded,
   onToggleExpand,
   onUpdate,
