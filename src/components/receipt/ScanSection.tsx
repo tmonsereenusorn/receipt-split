@@ -50,7 +50,7 @@ export function ScanSection({ onComplete, onSkip }: ScanSectionProps) {
       )}
 
       {ocr.isProcessing && (
-        <OcrProgressDisplay progress={ocr.progress} />
+        <OcrProgressDisplay isProcessing={ocr.isProcessing} />
       )}
 
       {ocr.error && (

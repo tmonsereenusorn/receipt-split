@@ -1,26 +1,23 @@
-import Tesseract from "tesseract.js";
-import { OcrProgress } from "@/types";
-import { preprocessImage } from "./image";
+import { prepareImageBase64 } from "./image";
 
 /**
- * Run OCR on an image, reporting progress via callback.
- * Preprocesses the image (grayscale, contrast, resize) before recognition.
- * Uses Tesseract.js v7 simple API (no manual worker lifecycle).
+ * Run OCR on an image via the server-side Google Cloud Vision API route.
+ * Resizes the image client-side before uploading.
  */
-export async function recognizeImage(
-  image: File | string,
-  onProgress?: (progress: OcrProgress) => void
-): Promise<string> {
-  const canvas = await preprocessImage(image);
+export async function recognizeImage(image: File | string): Promise<string> {
+  const base64DataUrl = await prepareImageBase64(image);
 
-  const result = await Tesseract.recognize(canvas, "eng", {
-    logger: (m: Tesseract.LoggerMessage) => {
-      onProgress?.({
-        status: m.status,
-        progress: m.progress,
-      });
-    },
+  const response = await fetch("/api/ocr", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: base64DataUrl }),
   });
 
-  return result.data.text;
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "OCR failed");
+  }
+
+  return data.text;
 }

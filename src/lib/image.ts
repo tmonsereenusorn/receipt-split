@@ -1,6 +1,4 @@
-const TARGET_WIDTH = 1500;
-const MAX_WIDTH = 2500;
-const CONTRAST_FACTOR = 1.5;
+const MAX_WIDTH = 1500;
 
 /**
  * Load a File or data URL into an HTMLImageElement.
@@ -8,8 +6,6 @@ const CONTRAST_FACTOR = 1.5;
 function loadImage(source: File | string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image"));
 
     if (source instanceof File) {
       const url = URL.createObjectURL(source);
@@ -23,57 +19,36 @@ function loadImage(source: File | string): Promise<HTMLImageElement> {
       };
       img.src = url;
     } else {
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Failed to load image"));
       img.src = source;
     }
   });
 }
 
 /**
- * Preprocess an image for OCR: resize, grayscale, contrast boost.
- * Returns an HTMLCanvasElement ready for Tesseract.recognize().
+ * Resize image if wider than MAX_WIDTH and return as a JPEG base64 data URL.
+ * Also handles HEIC/any format by re-encoding through canvas.
  */
-export async function preprocessImage(
+export async function prepareImageBase64(
   source: File | string
-): Promise<HTMLCanvasElement> {
+): Promise<string> {
   const img = await loadImage(source);
 
-  // Calculate target dimensions
   let width = img.naturalWidth;
   let height = img.naturalHeight;
 
-  if (width < TARGET_WIDTH || width > MAX_WIDTH) {
-    const targetW = width < TARGET_WIDTH ? TARGET_WIDTH : MAX_WIDTH;
-    const scale = targetW / width;
-    width = targetW;
+  if (width > MAX_WIDTH) {
+    const scale = MAX_WIDTH / width;
+    width = MAX_WIDTH;
     height = Math.round(height * scale);
   }
 
-  // Draw to canvas at target size
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, width, height);
 
-  // Get pixel data
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-
-  // Grayscale + contrast boost in a single pass
-  for (let i = 0; i < data.length; i += 4) {
-    // Luminance grayscale
-    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-    // Contrast stretch
-    const adjusted = Math.min(
-      255,
-      Math.max(0, (gray - 128) * CONTRAST_FACTOR + 128)
-    );
-    data[i] = adjusted;     // R
-    data[i + 1] = adjusted; // G
-    data[i + 2] = adjusted; // B
-    // Alpha unchanged
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-  return canvas;
+  return canvas.toDataURL("image/jpeg", 0.85);
 }
