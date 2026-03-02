@@ -1,13 +1,7 @@
 import { ReceiptItem } from "@/types";
 
-let nextId = 1;
 function makeId(): string {
-  return `item-${nextId++}`;
-}
-
-/** Reset ID counter (for testing) */
-export function resetIdCounter(): void {
-  nextId = 1;
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /**
@@ -59,8 +53,6 @@ export function parseRestaurantName(text: string): string | null {
  * Lines to skip — common receipt noise
  */
 const SKIP_PATTERNS = [
-  /^\s*$/,
-  /subtotal/i,
   /sub\s*total/i,
   /^total/i,
   /\btax\b/i,
@@ -119,7 +111,6 @@ function isNameLine(line: string): boolean {
  * Supports both single-line (name + price) and multi-line (name on one line, price on next).
  */
 export function parseReceiptText(text: string): ReceiptItem[] {
-  resetIdCounter();
   const lines = text.split("\n");
   const items: ReceiptItem[] = [];
 
@@ -191,7 +182,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
     // Google Vision often splits these across lines
     if (isNameLine(line) && i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
-      if (isPriceLine(nextLine) && !shouldSkipLine(line)) {
+      if (isPriceLine(nextLine)) {
         const cents = parseCents(nextLine.replace(/^\$/, ""));
         if (cents !== null) {
           items.push({

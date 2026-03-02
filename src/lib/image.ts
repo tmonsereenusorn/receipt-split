@@ -1,3 +1,4 @@
+// Google Vision performs well at 1500px; higher adds bandwidth without accuracy gain
 const MAX_WIDTH = 1500;
 
 /**
@@ -47,8 +48,11 @@ export async function prepareImageBase64(
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Failed to get canvas context");
   ctx.drawImage(img, 0, 0, width, height);
 
-  return canvas.toDataURL("image/jpeg", 0.85);
+  // Balance between file size and OCR accuracy
+  const JPEG_QUALITY = 0.85;
+  return canvas.toDataURL("image/jpeg", JPEG_QUALITY);
 }

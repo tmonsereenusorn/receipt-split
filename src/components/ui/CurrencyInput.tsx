@@ -18,16 +18,11 @@ export function CurrencyInput({
   className,
 }: CurrencyInputProps) {
   const [localValue, setLocalValue] = useState((cents / 100).toFixed(2));
-  const [isFocused, setIsFocused] = useState(false);
-  const prevCents = useRef(cents);
+  const isFocused = useRef(false);
 
-  // Sync from parent when not focused and cents actually changed externally
   useEffect(() => {
-    if (!isFocused && cents !== prevCents.current) {
-      setLocalValue((cents / 100).toFixed(2));
-    }
-    prevCents.current = cents;
-  }, [cents, isFocused]);
+    if (!isFocused.current) setLocalValue((cents / 100).toFixed(2));
+  }, [cents]);
 
   function commit() {
     const parsed = parseFloat(localValue);
@@ -47,11 +42,11 @@ export function CurrencyInput({
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onFocus={(e) => {
-        setIsFocused(true);
+        isFocused.current = true;
         e.target.select();
       }}
       onBlur={() => {
-        setIsFocused(false);
+        isFocused.current = false;
         commit();
       }}
       onKeyDown={(e) => {

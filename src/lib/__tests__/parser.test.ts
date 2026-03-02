@@ -1,9 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { parseReceiptText, parseRestaurantName, resetIdCounter } from "../parser";
-
-beforeEach(() => {
-  resetIdCounter();
-});
+import { describe, it, expect } from "vitest";
+import { parseReceiptText, parseRestaurantName } from "../parser";
 
 describe("parseReceiptText", () => {
   it("parses name + price lines", () => {

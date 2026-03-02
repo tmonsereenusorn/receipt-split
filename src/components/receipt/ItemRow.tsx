@@ -26,13 +26,10 @@ export function ItemRow({
   onDelete,
   onToggleAssignment,
 }: ItemRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
   const [localName, setLocalName] = useState(item.name);
   const [localQty, setLocalQty] = useState(String(item.quantity));
   const isNameFocused = useRef(false);
   const isQtyFocused = useRef(false);
-  const prevName = useRef(item.name);
-  const prevQty = useRef(item.quantity);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwipeOpen, setIsSwipeOpen] = useState(false);
@@ -45,17 +42,11 @@ export function ItemRow({
   const SWIPE_THRESHOLD = 50;
 
   useEffect(() => {
-    if (!isNameFocused.current && item.name !== prevName.current) {
-      setLocalName(item.name);
-    }
-    prevName.current = item.name;
+    if (!isNameFocused.current) setLocalName(item.name);
   }, [item.name]);
 
   useEffect(() => {
-    if (!isQtyFocused.current && item.quantity !== prevQty.current) {
-      setLocalQty(String(item.quantity));
-    }
-    prevQty.current = item.quantity;
+    if (!isQtyFocused.current) setLocalQty(String(item.quantity));
   }, [item.quantity]);
 
   useEffect(() => {
@@ -89,12 +80,12 @@ export function ItemRow({
     if (swipeDirection.current === "vertical") return;
 
     didSwipe.current = true;
-    const base = isSwipeOpen ? -DELETE_ZONE_WIDTH : 0;
+    const base = swipeOffsetRef.current <= -DELETE_ZONE_WIDTH ? -DELETE_ZONE_WIDTH : 0;
     const raw = base + dx;
     const clamped = Math.max(-DELETE_ZONE_WIDTH, Math.min(0, raw));
     swipeOffsetRef.current = clamped;
     setSwipeOffset(clamped);
-  }, [activePerson, isExpanded, isSwipeOpen]);
+  }, [activePerson, isExpanded]);
 
   const handlePointerEnd = useCallback(() => {
     if (activePerson || isExpanded) return;
