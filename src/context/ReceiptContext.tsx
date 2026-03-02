@@ -7,18 +7,9 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { ReceiptState, ReceiptAction, TaxTip } from "@/types";
+import { ReceiptState, ReceiptAction, TaxTip, initialTaxTip } from "@/types";
 
 const STORAGE_KEY = "receipt-split-state";
-
-const initialTaxTip: TaxTip = {
-  taxCents: 0,
-  taxIsPercent: false,
-  taxPercent: 0,
-  tipCents: 0,
-  tipIsPercent: true,
-  tipPercent: 20,
-};
 
 const initialState: ReceiptState = {
   items: [],

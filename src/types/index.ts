@@ -28,6 +28,25 @@ export interface TaxTip {
   tipPercent: number;
 }
 
+export const initialTaxTip: TaxTip = {
+  taxCents: 0,
+  taxIsPercent: false,
+  taxPercent: 0,
+  tipCents: 0,
+  tipIsPercent: true,
+  tipPercent: 20,
+};
+
+export interface ReceiptDoc {
+  restaurantName: string | null;
+  items: ReceiptItem[];
+  people: Person[];
+  taxTip: TaxTip;
+  imageDataUrl: string | null;
+  ocrText: string | null;
+  createdAt: number;
+}
+
 export interface ReceiptState {
   items: ReceiptItem[];
   people: Person[];
