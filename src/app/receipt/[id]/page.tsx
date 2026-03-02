@@ -32,6 +32,12 @@ export default function CollaborativeReceiptPage({
     }
   }, [id, receipt.loading, receipt.error, receipt.restaurantName, upsertRecent]);
 
+  useEffect(() => {
+    if (activePerson && !receipt.people.some((p) => p.id === activePerson)) {
+      setActivePerson(null);
+    }
+  }, [activePerson, receipt.people]);
+
   if (receipt.loading) {
     return (
       <ReceiptTape>

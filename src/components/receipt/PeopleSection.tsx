@@ -89,7 +89,7 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                 <button
                   type="button"
                   onClick={() => startEdit(person)}
-                  className="-ml-1 opacity-0 transition-opacity group-hover:opacity-100 text-xs"
+                  className="-ml-1 opacity-40 transition-opacity group-hover:opacity-100 text-xs"
                   style={{ color: person.color }}
                   aria-label={`Edit ${person.name}`}
                 >
@@ -117,7 +117,8 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
           />
         </form>
       </div>
-      {people.length > 0 && items.length > 0 && !activePerson && (
+      {people.length > 0 && items.length > 0 && !activePerson &&
+        items.some((item) => item.assignedTo.length === 0) && (
         <p className="mt-2 text-center font-mono text-xs text-zinc-600">
           tap your name to claim items
         </p>
