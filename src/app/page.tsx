@@ -6,11 +6,14 @@ import { createReceipt } from "@/lib/firestore";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
+import { useRecentReceipts } from "@/hooks/useRecentReceipts";
+import { RecentSection } from "@/components/receipt/RecentSection";
 
 export default function LandingPage() {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { recents, remove: removeRecent } = useRecentReceipts();
 
   async function handleScanResult(result: ScanResult) {
     setIsCreating(true);
@@ -65,6 +68,7 @@ export default function LandingPage() {
           <ScanSection onScanResult={handleScanResult} onSkip={handleSkip} />
         </div>
       )}
+      <RecentSection recents={recents} onRemove={removeRecent} />
     </ReceiptTape>
   );
 }
