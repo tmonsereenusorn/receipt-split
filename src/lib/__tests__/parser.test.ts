@@ -247,6 +247,24 @@ SALES TOTAL: 355.38`;
       priceCents: 450,
     });
   });
+
+  it("parses #-prefixed item names", () => {
+    const items = parseReceiptText("#1 Combo Meal 12.99");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Combo Meal",
+      priceCents: 1299,
+    });
+  });
+
+  it("parses digit-dot-prefixed item names", () => {
+    const items = parseReceiptText("2. Pad Thai 14.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Pad Thai",
+      priceCents: 1450,
+    });
+  });
 });
 
 describe("parseRestaurantName", () => {

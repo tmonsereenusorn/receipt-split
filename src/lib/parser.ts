@@ -201,6 +201,27 @@ export function parseReceiptText(text: string): ReceiptItem[] {
       }
     }
 
+    // Pattern 7: #/digit-prefixed items (e.g., "#1 Combo Meal 12.99" or "2. Pad Thai 14.50")
+    match = line.match(
+      /^(?:#\d+|\d+\.)\s+(.+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+    );
+    if (match) {
+      const name = match[1].trim();
+      if (name) {
+        const cents = parseCents(match[2]);
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          continue;
+        }
+      }
+    }
+
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
       /^([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
