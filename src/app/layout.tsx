@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Receipt Split",
-  description: "Split receipts with friends — scan, assign, and calculate per-person totals",
+  title: "Shplit",
+  description: "Shplit — split receipts with friends. Scan, assign, and calculate per-person totals",
 };
 
 export const viewport: Viewport = {

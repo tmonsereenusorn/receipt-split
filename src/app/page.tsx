@@ -58,7 +58,7 @@ export default function ReceiptPage() {
 
   return (
     <ReceiptTape>
-      <ReceiptHeader />
+      <ReceiptHeader restaurantName={receipt.restaurantName} />
 
       {!hasItems && (
         <div className="no-print">

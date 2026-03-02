@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useReceipt } from "@/hooks/useReceipt";
 import { useOcr } from "@/hooks/useOcr";
-import { parseReceiptText } from "@/lib/parser";
+import { parseReceiptText, parseRestaurantName } from "@/lib/parser";
 import { ImageCapture } from "@/components/scan/ImageCapture";
 import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
@@ -27,6 +27,7 @@ export function ScanSection({ onComplete, onSkip }: ScanSectionProps) {
     const text = await ocr.recognize(file);
     if (text) {
       receipt.setOcrText(text);
+      receipt.setRestaurantName(parseRestaurantName(text));
       const items = parseReceiptText(text);
       if (items.length > 0) {
         receipt.setItems(items);

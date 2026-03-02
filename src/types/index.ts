@@ -34,6 +34,7 @@ export interface ReceiptState {
   taxTip: TaxTip;
   imageDataUrl: string | null;
   ocrText: string | null;
+  restaurantName: string | null;
 }
 
 export type ReceiptAction =
@@ -49,6 +50,7 @@ export type ReceiptAction =
   | { type: "SET_TAX_TIP"; taxTip: Partial<TaxTip> }
   | { type: "SET_IMAGE"; dataUrl: string }
   | { type: "SET_OCR_TEXT"; text: string }
+  | { type: "SET_RESTAURANT_NAME"; name: string | null }
   | { type: "RESET" };
 
 export interface PersonBreakdown {

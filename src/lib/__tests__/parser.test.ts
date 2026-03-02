@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseReceiptText, resetIdCounter } from "../parser";
+import { parseReceiptText, parseRestaurantName, resetIdCounter } from "../parser";
 
 beforeEach(() => {
   resetIdCounter();
@@ -178,5 +178,65 @@ Cash Discount:
       name: "CHICKEN KARAAGE",
       priceCents: 950,
     });
+  });
+});
+
+describe("parseRestaurantName", () => {
+  it("returns the restaurant name from the first line", () => {
+    const text = `Wasabi Bistro
+524 Castro St. San Francisco, CA 94114
+415-701-0082
+CHICKEN KARAAGE 9.50`;
+    expect(parseRestaurantName(text)).toBe("Wasabi Bistro");
+  });
+
+  it("skips blank lines before the name", () => {
+    const text = `
+
+    Joe's Diner
+    Burger 12.99`;
+    expect(parseRestaurantName(text)).toBe("Joe's Diner");
+  });
+
+  it("skips phone number lines", () => {
+    const text = `415-701-0082
+Wasabi Bistro
+Burger 12.99`;
+    expect(parseRestaurantName(text)).toBe("Wasabi Bistro");
+  });
+
+  it("skips address lines", () => {
+    const text = `123 Main St Suite 4
+The Pizza Place
+Pepperoni 15.00`;
+    expect(parseRestaurantName(text)).toBe("The Pizza Place");
+  });
+
+  it("skips price-only lines", () => {
+    const text = `$12.99
+Tony's Trattoria
+Pasta 18.00`;
+    expect(parseRestaurantName(text)).toBe("Tony's Trattoria");
+  });
+
+  it("skips lines starting with numbers", () => {
+    const text = `#1040
+Sushi House
+Roll 14.00`;
+    expect(parseRestaurantName(text)).toBe("Sushi House");
+  });
+
+  it("skips skip-pattern lines (dates, timestamps, etc.)", () => {
+    const text = `12/25/2024
+3:45 PM
+www.example.com
+Mountain Cafe
+Coffee 5.00`;
+    expect(parseRestaurantName(text)).toBe("Mountain Cafe");
+  });
+
+  it("returns null when no restaurant name is found", () => {
+    expect(parseRestaurantName("")).toBeNull();
+    expect(parseRestaurantName("$12.99\n415-555-1234")).toBeNull();
   });
 });

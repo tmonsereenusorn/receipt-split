@@ -30,6 +30,32 @@ function parseCents(priceStr: string): number | null {
 }
 
 /**
+ * Extract the restaurant name from the first few lines of OCR text.
+ * Returns the first non-blank line that doesn't look like noise.
+ */
+export function parseRestaurantName(text: string): string | null {
+  const lines = text.split("\n");
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (shouldSkipLine(line)) continue;
+    // Phone number
+    if (/^\d{3}[-.\s]?\d{3}/.test(line)) continue;
+    // Address (number + street name + suffix)
+    if (/^\d+\s+\w+\s+(st|ave|blvd|rd|dr|ln|ct|way|pkwy)/i.test(line)) continue;
+    // Price-only line
+    if (/^\$?[\d,]+\.\d{2}$/.test(line)) continue;
+    // Must start with a letter
+    if (!/^[A-Za-z]/.test(line)) continue;
+
+    return line;
+  }
+
+  return null;
+}
+
+/**
  * Lines to skip — common receipt noise
  */
 const SKIP_PATTERNS = [

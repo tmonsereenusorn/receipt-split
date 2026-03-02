@@ -86,6 +86,10 @@ export function useReceipt() {
       dispatch({ type: "SET_OCR_TEXT", text });
     },
 
+    setRestaurantName(name: string | null) {
+      dispatch({ type: "SET_RESTAURANT_NAME", name });
+    },
+
     reset() {
       dispatch({ type: "RESET" });
     },

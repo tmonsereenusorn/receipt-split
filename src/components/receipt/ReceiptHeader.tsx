@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-export function ReceiptHeader() {
+interface ReceiptHeaderProps {
+  restaurantName?: string | null;
+}
+
+export function ReceiptHeader({ restaurantName }: ReceiptHeaderProps) {
   const [timestamp] = useState(() => {
     const now = new Date();
     return `${now.toLocaleDateString("en-US", {
@@ -16,10 +20,12 @@ export function ReceiptHeader() {
     })}`;
   });
 
+  const displayName = restaurantName || "Shplit";
+
   return (
     <div className="print-keep-with-next py-6 text-center">
       <h1 className="font-mono text-lg font-bold uppercase tracking-[0.25em] text-zinc-100">
-        Receipt Split
+        {displayName}
       </h1>
       <div className="print-decorative mt-1 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
         ================================

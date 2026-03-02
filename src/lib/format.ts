@@ -29,7 +29,7 @@ export function generateShareText(
   const grandTotal = subtotal + taxCents + tipCents;
 
   const lines: string[] = [
-    "Receipt Split",
+    "Shplit",
     "─".repeat(30),
     `Subtotal: ${formatCents(subtotal)}`,
     `Tax: ${formatCents(taxCents)}`,

@@ -26,6 +26,7 @@ const initialState: ReceiptState = {
   taxTip: initialTaxTip,
   imageDataUrl: null,
   ocrText: null,
+  restaurantName: null,
 };
 
 function receiptReducer(
@@ -112,6 +113,9 @@ function receiptReducer(
 
     case "SET_OCR_TEXT":
       return { ...state, ocrText: action.text };
+
+    case "SET_RESTAURANT_NAME":
+      return { ...state, restaurantName: action.name };
 
     case "RESET":
       return initialState;
