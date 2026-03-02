@@ -265,6 +265,15 @@ SALES TOTAL: 355.38`;
       priceCents: 1450,
     });
   });
+
+  it("parses comped items at $0.00", () => {
+    const items = parseReceiptText("Comp Water 0.00");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "Comp Water",
+      priceCents: 0,
+    });
+  });
 });
 
 describe("parseRestaurantName", () => {
