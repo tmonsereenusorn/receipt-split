@@ -54,12 +54,27 @@ export function ItemRow({
 
   return (
     <div
-      className={`transition-colors ${isUnassigned ? "border-l-2 border-l-amber-500/60" : "border-l-2 border-l-transparent"}`}
+      className="transition-colors border-l-2"
+      style={{
+        borderLeftColor: activePerson
+          ? item.assignedTo.includes(activePerson)
+            ? (people.find((p) => p.id === activePerson)?.color ?? "transparent")
+            : "transparent"
+          : isUnassigned
+            ? "rgba(245, 158, 11, 0.6)"
+            : "transparent",
+      }}
     >
       {/* Collapsed row: receipt line */}
       <button
         type="button"
-        onClick={onToggleExpand}
+        onClick={() => {
+          if (activePerson) {
+            onToggleAssignment(item.id, activePerson);
+          } else {
+            onToggleExpand();
+          }
+        }}
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50"
       >
         {/* Quantity */}
