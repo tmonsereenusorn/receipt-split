@@ -97,7 +97,10 @@ export default function CollaborativeReceiptPage({
           onSelectPerson={setActivePerson}
           onAdd={receipt.addPerson}
           onUpdate={receipt.updatePerson}
-          onDelete={receipt.deletePerson}
+          onDelete={(id) => {
+            if (activePerson === id) setActivePerson(null);
+            receipt.deletePerson(id);
+          }}
         />
       </div>
 
