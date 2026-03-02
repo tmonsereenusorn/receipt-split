@@ -204,6 +204,21 @@ SALES TOTAL: 355.38`;
     expect(items).toHaveLength(1);
     expect(items[0].name).toBe("Burger");
   });
+
+  it("parses non-ASCII item names", () => {
+    const items = parseReceiptText("Crème Brûlée 9.50");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ name: "Crème Brûlée", priceCents: 950 });
+  });
+
+  it("parses multi-line price-then-name order", () => {
+    const items = parseReceiptText("9.50\nCHICKEN KARAAGE");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "CHICKEN KARAAGE",
+      priceCents: 950,
+    });
+  });
 });
 
 describe("parseRestaurantName", () => {

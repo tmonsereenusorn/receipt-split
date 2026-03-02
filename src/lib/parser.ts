@@ -103,7 +103,7 @@ function isPriceLine(line: string): boolean {
  * Check if a line looks like an item name (starts with a letter, no trailing price)
  */
 function isNameLine(line: string): boolean {
-  return /^[A-Za-z]/.test(line.trim()) && !isPriceLine(line);
+  return /^[^\d$]/.test(line.trim()) && !isPriceLine(line);
 }
 
 /**
@@ -142,7 +142,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 2: qty name ... price (e.g., "2 Burger 12.99")
     match = line.match(
-      /^(\d+)\s+([A-Za-z].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+      /^(\d+)\s+([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const qty = parseInt(match[1], 10);
@@ -163,7 +163,7 @@ export function parseReceiptText(text: string): ReceiptItem[] {
 
     // Pattern 3: name ... price (e.g., "Burger $12.99" or "Burger 12.99")
     match = line.match(
-      /^([A-Za-z].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
+      /^([^\d$].+?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s*$/
     );
     if (match) {
       const cents = parseCents(match[2]);
@@ -194,6 +194,25 @@ export function parseReceiptText(text: string): ReceiptItem[] {
             assignedTo: [],
           });
           i++; // skip the price line
+          continue;
+        }
+      }
+    }
+
+    // Pattern 4b: Multi-line — price on this line, name on next line
+    if (isPriceLine(line) && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (isNameLine(nextLine) && !shouldSkipLine(nextLine)) {
+        const cents = parseCents(line.replace(/^\$/, ""));
+        if (cents !== null) {
+          items.push({
+            id: makeId(),
+            name: nextLine,
+            quantity: 1,
+            priceCents: cents,
+            assignedTo: [],
+          });
+          i++; // skip the name line
           continue;
         }
       }
