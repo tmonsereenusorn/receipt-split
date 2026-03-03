@@ -50,20 +50,20 @@ export function ReceiptHeader({ restaurantName, onChangeName }: ReceiptHeaderPro
             }
           }}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          className="w-full bg-transparent text-center font-mono text-lg font-bold uppercase tracking-[0.25em] text-zinc-100 focus:outline-none"
+          className="w-full bg-transparent text-center font-receipt text-2xl uppercase tracking-[0.15em] text-ink focus:outline-none"
           aria-label="Restaurant name"
         />
       ) : (
-        <h1 className="font-mono text-lg font-bold uppercase tracking-[0.25em] text-zinc-100">
+        <h1 className="font-receipt text-2xl uppercase tracking-[0.15em] text-ink">
           {displayName}
         </h1>
       )}
-      <div className="print-decorative mt-1 font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
-        ================================
-      </div>
-      <p className="print-muted mt-2 font-mono text-xs text-zinc-500">
+      <p className="print-muted mt-1 font-receipt text-base text-ink-muted">
         {timestamp}
       </p>
+      <div className="print-decorative receipt-separator mt-2 text-sm select-none" aria-hidden="true">
+        ================================
+      </div>
     </div>
   );
 }
