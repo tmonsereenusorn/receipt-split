@@ -58,6 +58,9 @@ export default function LandingPage() {
         <h1 className="font-receipt text-5xl uppercase tracking-[0.15em] text-ink">
           Shplit
         </h1>
+        <p className="mt-1 font-receipt text-base text-ink-muted">
+          for when you can&apos;t split evenly
+        </p>
       </div>
       {error && (
         <p className="py-2 text-center font-receipt text-base text-accent">{error}</p>
