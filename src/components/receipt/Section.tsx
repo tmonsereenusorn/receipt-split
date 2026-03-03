@@ -1,12 +1,16 @@
-interface SectionProps {
+export function Section({
+  children,
+  className = "",
+}: {
   children: React.ReactNode;
   className?: string;
-}
-
-export function Section({ children, className }: SectionProps) {
+}) {
   return (
-    <div className={`receipt-section border-b border-dashed border-zinc-700 py-5 last:border-0 ${className ?? ""}`}>
+    <div className={`receipt-section py-4 ${className}`}>
       {children}
+      <div className="receipt-separator mt-4 text-sm" aria-hidden="true">
+        - - - - - - - - - - - - - - - - - - -
+      </div>
     </div>
   );
 }
