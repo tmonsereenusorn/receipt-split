@@ -11,12 +11,23 @@ export async function generateMetadata({
   const receipt = await getReceipt(id);
   const name = receipt?.restaurantName;
   const title = name ? `${name} Shplit` : "Shplit";
+  const description = name
+    ? `Split the bill from ${name} with friends`
+    : "Split receipts with friends";
 
   return {
     title,
-    description: name
-      ? `Split the bill from ${name} with friends`
-      : "Split receipts with friends",
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `https://shplit.vercel.app/receipt/${id}`,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
   };
 }
 
