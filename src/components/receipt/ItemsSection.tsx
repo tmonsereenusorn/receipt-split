@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { ReceiptItem, Person } from "@/types";
 import { Section } from "./Section";
 import { ItemRow } from "./ItemRow";
@@ -13,6 +13,7 @@ interface ItemsSectionProps {
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
   onAddItem: () => void;
+  onReorder: (itemId: string, newIndex: number) => void;
 }
 
 export function ItemsSection({
@@ -23,8 +24,65 @@ export function ItemsSection({
   onDelete,
   onToggleAssignment,
   onAddItem,
+  onReorder,
 }: ItemsSectionProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Drag reorder state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null);
+  const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const handleDragStart = useCallback((itemId: string) => {
+    setDraggingId(itemId);
+    setExpandedId(null);
+  }, []);
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!draggingId) return;
+      const y = e.clientY;
+
+      // Find which item the pointer is over
+      let targetId: string | null = null;
+      for (const item of items) {
+        const el = itemRefs.current.get(item.id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) {
+          targetId = item.id;
+          break;
+        }
+      }
+      setInsertBeforeId(targetId);
+    },
+    [draggingId, items]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    if (!draggingId) return;
+
+    // Calculate new index
+    let newIndex = items.length; // default: end
+    if (insertBeforeId) {
+      newIndex = items.findIndex((i) => i.id === insertBeforeId);
+    }
+
+    const oldIndex = items.findIndex((i) => i.id === draggingId);
+    if (oldIndex !== -1 && newIndex !== oldIndex) {
+      // Adjust index if moving down (since the item is removed first)
+      if (newIndex > oldIndex) newIndex--;
+      onReorder(draggingId, newIndex);
+    }
+
+    setDraggingId(null);
+    setInsertBeforeId(null);
+  }, [draggingId, insertBeforeId, items, onReorder]);
+
+  const handlePointerCancel = useCallback(() => {
+    setDraggingId(null);
+    setInsertBeforeId(null);
+  }, []);
 
   return (
     <Section>
@@ -47,22 +105,43 @@ export function ItemsSection({
           no items yet
         </p>
       ) : (
-        <div>
+        <div
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        >
           {items.map((item) => (
-            <ItemRow
+            <div
               key={item.id}
-              item={item}
-              people={people}
-              activePerson={activePerson}
-              isExpanded={expandedId === item.id}
-              onToggleExpand={() =>
-                setExpandedId(expandedId === item.id ? null : item.id)
-              }
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              onToggleAssignment={onToggleAssignment}
-            />
+              ref={(el) => {
+                if (el) itemRefs.current.set(item.id, el);
+                else itemRefs.current.delete(item.id);
+              }}
+            >
+              {/* Insertion line before this item */}
+              {draggingId && insertBeforeId === item.id && (
+                <div className="mx-2 h-0.5 bg-ink" />
+              )}
+              <ItemRow
+                item={item}
+                people={people}
+                activePerson={activePerson}
+                isExpanded={expandedId === item.id}
+                isDragging={draggingId === item.id}
+                onDragStart={handleDragStart}
+                onToggleExpand={() =>
+                  setExpandedId(expandedId === item.id ? null : item.id)
+                }
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                onToggleAssignment={onToggleAssignment}
+              />
+            </div>
           ))}
+          {/* Insertion line at the end */}
+          {draggingId && insertBeforeId === null && (
+            <div className="mx-2 h-0.5 bg-ink" />
+          )}
         </div>
       )}
     </Section>

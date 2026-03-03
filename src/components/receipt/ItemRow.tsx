@@ -10,10 +10,12 @@ interface ItemRowProps {
   people: Person[];
   activePerson: string | null;
   isExpanded: boolean;
+  isDragging?: boolean;
   onToggleExpand: () => void;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
+  onDragStart?: (itemId: string) => void;
 }
 
 export function ItemRow({
@@ -21,10 +23,12 @@ export function ItemRow({
   people,
   activePerson,
   isExpanded,
+  isDragging,
   onToggleExpand,
   onUpdate,
   onDelete,
   onToggleAssignment,
+  onDragStart,
 }: ItemRowProps) {
   const [localName, setLocalName] = useState(item.name);
   const [localQty, setLocalQty] = useState(String(item.quantity));
@@ -159,8 +163,24 @@ export function ItemRow({
   return (
     <div
       ref={rowRef}
-      className={`overflow-hidden transition-all duration-300 ${isRemoving ? "max-h-0 opacity-0" : "max-h-96"}`}
+      className={`overflow-hidden transition-all duration-300 ${isRemoving ? "max-h-0 opacity-0" : "max-h-96"} ${isDragging ? "opacity-50" : ""}`}
     >
+      <div className="flex items-start">
+        {/* Grip handle for drag reorder */}
+        {!activePerson && !isExpanded && (
+          <div
+            className="no-print flex shrink-0 cursor-grab items-center py-2 pr-1 text-ink-faded select-none touch-none active:cursor-grabbing"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              onDragStart?.(item.id);
+            }}
+            aria-label="Drag to reorder"
+          >
+            <span className="font-receipt text-base leading-none">&#x2807;</span>
+          </div>
+        )}
+        {/* Swipe + content container */}
+        <div className="min-w-0 flex-1">
       {/* Swipe container */}
       <div className="relative overflow-hidden">
         {/* Slideable row content */}
@@ -331,6 +351,8 @@ export function ItemRow({
           )}
         </div>
       )}
+        </div>{/* end swipe + content container */}
+      </div>{/* end flex items-start */}
     </div>
   );
 }

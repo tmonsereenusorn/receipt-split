@@ -120,6 +120,7 @@ export default function CollaborativeReceiptPage({
             onDelete={receipt.deleteItem}
             onToggleAssignment={receipt.toggleAssignment}
             onAddItem={() => receipt.addItem("New Item", 1, 0)}
+            onReorder={receipt.reorderItem}
           />
         </div>
       )}
