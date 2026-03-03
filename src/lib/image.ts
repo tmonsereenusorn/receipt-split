@@ -1,4 +1,4 @@
-// Google Vision performs well at 1500px; higher adds bandwidth without accuracy gain
+// 1500px is a good balance between OCR accuracy and bandwidth
 const MAX_WIDTH = 1500;
 
 /**

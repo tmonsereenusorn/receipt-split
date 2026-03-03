@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import { useOcr } from "@/hooks/useOcr";
-import { parseReceiptText, parseRestaurantName } from "@/lib/parser";
 import { ImageCapture } from "@/components/scan/ImageCapture";
 import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
@@ -13,7 +12,7 @@ import type { ReceiptItem } from "@/types";
 export interface ScanResult {
   items: ReceiptItem[];
   restaurantName: string | null;
-  ocrText: string;
+  ocrText: string | null;
   imageDataUrl: string;
 }
 
@@ -30,22 +29,20 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
   async function handleCapture(file: File, dataUrl: string) {
     setImageDataUrl(dataUrl);
 
-    const text = await ocr.recognize(file);
-    if (text) {
-      const items = parseReceiptText(text);
-      const restaurantName = parseRestaurantName(text);
-      onScanResult({ items, restaurantName, ocrText: text, imageDataUrl: dataUrl });
+    const result = await ocr.recognize(file);
+    if (result) {
+      onScanResult({
+        items: result.items,
+        restaurantName: result.restaurantName,
+        ocrText: null,
+        imageDataUrl: dataUrl,
+      });
     }
   }
 
   function handleRetake() {
     setImageDataUrl(null);
   }
-
-  const parsedItems = useMemo(
-    () => (ocr.result ? parseReceiptText(ocr.result) : []),
-    [ocr.result]
-  );
 
   return (
     <Section>
@@ -68,9 +65,9 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
       {ocr.result && !ocr.isProcessing && (
         <div className="space-y-2 py-2">
           <div className="font-mono text-xs text-green-500">
-            ✓ {parsedItems.length} item{parsedItems.length !== 1 ? "s" : ""} detected
+            ✓ {ocr.result.items.length} item{ocr.result.items.length !== 1 ? "s" : ""} detected
           </div>
-          {parsedItems.map((item) => (
+          {ocr.result.items.map((item) => (
             <div
               key={item.id}
               className="flex justify-between font-mono text-xs text-zinc-400"
