@@ -5,10 +5,10 @@ export function OcrProgressDisplay({ isProcessing }: { isProcessing: boolean }) 
 
   return (
     <div className="w-full space-y-2 py-4 text-center">
-      <div className="font-mono text-sm text-amber-500 animate-pulse">
+      <div className="font-receipt text-xl text-ink animate-pulse">
         [ SCANNING... ]
       </div>
-      <div className="text-xs text-zinc-500">reading your receipt</div>
+      <div className="font-receipt text-base text-ink-muted">reading your receipt</div>
     </div>
   );
 }

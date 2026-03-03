@@ -12,12 +12,12 @@ export function ImagePreview({ dataUrl, onRetake }: ImagePreviewProps) {
       <img
         src={dataUrl}
         alt="Captured receipt"
-        className="max-h-48 rounded border border-zinc-700 object-contain"
+        className="max-h-48 border border-ink-faded object-contain opacity-60"
       />
       <button
         type="button"
         onClick={onRetake}
-        className="text-xs text-zinc-500 hover:text-zinc-300"
+        className="font-receipt text-base text-ink-muted underline hover:text-ink"
       >
         retake
       </button>

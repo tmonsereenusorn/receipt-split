@@ -34,10 +34,10 @@ export function ImageCapture({ onCapture }: ImageCaptureProps) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="w-full rounded-lg border-2 border-dashed border-amber-500/50 px-6 py-8 text-center transition-colors hover:border-amber-500 hover:bg-amber-500/5"
+        className="w-full border-2 border-dashed border-ink-faded px-6 py-8 text-center transition-colors hover:border-ink"
       >
-        <div className="font-mono text-sm text-amber-500">[ SCAN RECEIPT ]</div>
-        <div className="mt-1 text-xs text-zinc-500">tap to take a photo</div>
+        <div className="font-receipt text-xl text-ink">[ SCAN RECEIPT ]</div>
+        <div className="mt-1 font-receipt text-base text-ink-muted">tap to take a photo</div>
       </button>
     </div>
   );

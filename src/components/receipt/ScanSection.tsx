@@ -59,21 +59,21 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
       )}
 
       {ocr.error && (
-        <p className="py-2 text-center font-mono text-xs text-red-400">{ocr.error}</p>
+        <p className="py-2 text-center font-receipt text-base text-accent">{ocr.error}</p>
       )}
 
       {ocr.result && !ocr.isProcessing && (
         <div className="space-y-2 py-2">
-          <div className="font-mono text-xs text-green-500">
+          <div className="font-receipt text-base text-ink">
             ✓ {ocr.result.items.length} item{ocr.result.items.length !== 1 ? "s" : ""} detected
           </div>
           {ocr.result.items.map((item) => (
             <div
               key={item.id}
-              className="flex justify-between font-mono text-xs text-zinc-400"
+              className="flex justify-between font-receipt text-base text-ink"
             >
               <span className="truncate">{item.name}</span>
-              <span className="ml-2 text-zinc-300">{formatCents(item.priceCents)}</span>
+              <span className="ml-2 text-ink">{formatCents(item.priceCents)}</span>
             </div>
           ))}
         </div>
@@ -98,14 +98,14 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
           <button
             type="button"
             onClick={() => galleryInputRef.current?.click()}
-            className="flex-1 rounded border border-zinc-700 px-4 py-2 font-mono text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+            className="flex-1 font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
           >
             gallery
           </button>
           <button
             type="button"
             onClick={onSkip}
-            className="flex-1 rounded border border-zinc-700 px-4 py-2 font-mono text-xs text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+            className="flex-1 font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
           >
             manual entry
           </button>
