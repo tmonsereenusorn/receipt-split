@@ -147,6 +147,7 @@ export function ItemRow({
   const total = item.quantity * item.priceCents;
   const allAssigned = people.length > 0 && people.every((p) => item.assignedTo.includes(p.id));
   const assignedPeople = people.filter((p) => item.assignedTo.includes(p.id));
+  const isUnassigned = people.length > 0 && item.assignedTo.length === 0;
 
   const handleToggleAll = () => {
     const toToggle = allAssigned
@@ -185,7 +186,7 @@ export function ItemRow({
               }
             }}
             className={`relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg ${
-              isStruck ? "text-ink-faded" : "text-ink"
+              isStruck ? "text-ink-faded" : isUnassigned ? "text-accent" : "text-ink"
             }`}
           >
             {/* Quantity prefix when > 1 */}
@@ -200,6 +201,9 @@ export function ItemRow({
             </span>
             {/* Price */}
             <span className="shrink-0">{formatCents(total)}</span>
+            {isUnassigned && !isStruck && (
+              <span className="ml-1 shrink-0 text-accent">*</span>
+            )}
 
             {/* SVG strikethrough overlay */}
             {isStruck && (
@@ -227,7 +231,7 @@ export function ItemRow({
                   </span>
                 ))
               ) : !activePerson ? (
-                <span className="font-hand text-sm text-ink-faded italic">
+                <span className={`font-hand text-sm italic ${people.length > 0 ? 'text-accent' : 'text-ink-faded'}`}>
                   (tap to assign)
                 </span>
               ) : null}
