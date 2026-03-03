@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useOcr } from "@/hooks/useOcr";
 import { ImageCapture } from "@/components/scan/ImageCapture";
 import { ImagePreview } from "@/components/scan/ImagePreview";
@@ -24,7 +24,6 @@ interface ScanSectionProps {
 export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
   const ocr = useOcr();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   async function handleCapture(file: File, dataUrl: string) {
     setImageDataUrl(dataUrl);
@@ -80,32 +79,11 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
       )}
 
       {!ocr.isProcessing && !ocr.result && (
-        <div className="flex gap-2 px-4 pb-2">
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () => handleCapture(file, reader.result as string);
-              reader.readAsDataURL(file);
-            }}
-            className="hidden"
-            aria-label="Choose image from gallery"
-          />
-          <button
-            type="button"
-            onClick={() => galleryInputRef.current?.click()}
-            className="flex-1 font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
-          >
-            gallery
-          </button>
+        <div className="flex justify-center px-4 pb-2">
           <button
             type="button"
             onClick={onSkip}
-            className="flex-1 font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
+            className="font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
           >
             manual entry
           </button>
