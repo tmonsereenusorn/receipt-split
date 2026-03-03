@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { TaxTip } from "@/types";
+import { formatCents } from "@/lib/format";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Section } from "./Section";
 
 interface TaxTipSectionProps {
   taxTip: TaxTip;
+  subtotalCents: number;
   onChange: (updates: Partial<TaxTip>) => void;
 }
 
@@ -40,17 +42,19 @@ function PercentOrDollarInput({
     if (!isPercentFocused.current) setLocalPercent(String(percent));
   }, [percent]);
 
-  const displayValue = isPercent ? `${percent}%` : `$${(cents / 100).toFixed(2)}`;
-
   return (
     <div>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between py-1 text-sm"
+        className="flex w-full items-baseline py-1 font-receipt text-lg text-ink"
       >
-        <span className="text-zinc-400">{label}</span>
-        <span className="font-mono text-zinc-200">{displayValue}</span>
+        <span className="shrink-0 uppercase">{label}</span>
+        <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
+          {"·".repeat(50)}
+        </span>
+        <span className="shrink-0 text-ink-muted">{isPercent ? `${percent}%` : ''}</span>
+        <span className="ml-2 shrink-0">{formatCents(cents)}</span>
       </button>
 
       {expanded && (
@@ -60,8 +64,8 @@ function PercentOrDollarInput({
             <button
               type="button"
               onClick={() => onToggleMode(true)}
-              className={`rounded px-2 py-0.5 font-mono text-xs ${
-                isPercent ? "bg-amber-500/20 text-amber-500" : "text-zinc-500 hover:text-zinc-300"
+              className={`px-2 py-0.5 font-receipt text-sm ${
+                isPercent ? "font-bold text-ink" : "text-ink-faded"
               }`}
             >
               %
@@ -69,8 +73,8 @@ function PercentOrDollarInput({
             <button
               type="button"
               onClick={() => onToggleMode(false)}
-              className={`rounded px-2 py-0.5 font-mono text-xs ${
-                !isPercent ? "bg-amber-500/20 text-amber-500" : "text-zinc-500 hover:text-zinc-300"
+              className={`px-2 py-0.5 font-receipt text-sm ${
+                !isPercent ? "font-bold text-ink" : "text-ink-faded"
               }`}
             >
               $
@@ -85,10 +89,10 @@ function PercentOrDollarInput({
                     key={pct}
                     type="button"
                     onClick={() => onChangePercent(pct)}
-                    className={`rounded-full px-3 py-1 font-mono text-xs transition-colors ${
+                    className={`px-3 py-1 font-receipt text-base transition-colors ${
                       percent === pct
-                        ? "bg-amber-500 text-zinc-950 font-semibold"
-                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                        ? "font-bold underline text-ink"
+                        : "text-ink-muted hover:text-ink"
                     }`}
                   >
                     {pct}%
@@ -111,18 +115,18 @@ function PercentOrDollarInput({
                     onChangePercent(parsed);
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                  className="w-16 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-300 focus:border-amber-500 focus:outline-none"
+                  className="w-16 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
                 />
-                <span className="font-mono text-xs text-zinc-500">%</span>
+                <span className="font-receipt text-sm text-ink-faded">%</span>
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="font-mono text-xs text-zinc-500">$</span>
+              <span className="font-receipt text-sm text-ink-faded">$</span>
               <CurrencyInput
                 cents={cents}
                 onChangeCents={onChangeCents}
-                className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-300 focus:border-amber-500 focus:outline-none"
+                className="w-20 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
               />
             </div>
           )}
@@ -132,18 +136,22 @@ function PercentOrDollarInput({
   );
 }
 
-export function TaxTipSection({ taxTip, onChange }: TaxTipSectionProps) {
+export function TaxTipSection({ taxTip, subtotalCents, onChange }: TaxTipSectionProps) {
+  const effectiveTaxCents = taxTip.taxIsPercent
+    ? Math.round(subtotalCents * taxTip.taxPercent / 100)
+    : taxTip.taxCents;
+  const effectiveTipCents = taxTip.tipIsPercent
+    ? Math.round(subtotalCents * taxTip.tipPercent / 100)
+    : taxTip.tipCents;
+
   return (
     <Section>
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
-        Tax & Tip
-      </h3>
       <div className="space-y-1">
         <PercentOrDollarInput
           label="Tax"
           isPercent={taxTip.taxIsPercent}
           percent={taxTip.taxPercent}
-          cents={taxTip.taxCents}
+          cents={effectiveTaxCents}
           presets={TAX_PRESETS}
           onToggleMode={(isPercent) => onChange({ taxIsPercent: isPercent })}
           onChangePercent={(pct) => onChange({ taxPercent: pct })}
@@ -153,7 +161,7 @@ export function TaxTipSection({ taxTip, onChange }: TaxTipSectionProps) {
           label="Tip"
           isPercent={taxTip.tipIsPercent}
           percent={taxTip.tipPercent}
-          cents={taxTip.tipCents}
+          cents={effectiveTipCents}
           presets={TIP_PRESETS}
           onToggleMode={(isPercent) => onChange({ tipIsPercent: isPercent })}
           onChangePercent={(pct) => onChange({ tipPercent: pct })}

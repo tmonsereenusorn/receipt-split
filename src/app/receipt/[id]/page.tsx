@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useFirestoreReceipt } from "@/hooks/useFirestoreReceipt";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
-import { calculateBreakdowns } from "@/lib/calculator";
+import { calculateBreakdowns, getSubtotalCents } from "@/lib/calculator";
 import { generateShareText, generateCsv } from "@/lib/format";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
@@ -128,7 +128,7 @@ export default function CollaborativeReceiptPage({
 
       {hasItems && (
         <div className="no-print">
-          <TaxTipSection taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
+          <TaxTipSection taxTip={receipt.taxTip} subtotalCents={getSubtotalCents(receipt.items)} onChange={receipt.setTaxTip} />
         </div>
       )}
 
