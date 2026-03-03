@@ -1,15 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { VT323, Caveat } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const vt323 = VT323({
+  weight: "400",
   subsets: ["latin"],
+  variable: "--font-receipt",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const caveat = Caveat({
   subsets: ["latin"],
+  variable: "--font-handwritten",
 });
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${vt323.variable} ${caveat.variable} antialiased bg-[var(--page-bg)] text-[var(--ink)]`}
       >
         <main className="mx-auto min-h-screen max-w-md px-4 py-6">
           {children}
