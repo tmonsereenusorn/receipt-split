@@ -148,9 +148,6 @@ export function TotalsSection({ items, taxTip, onChange }: TotalsSectionProps) {
   return (
     <Section>
       <div className="print-no-break space-y-1 font-receipt text-lg">
-        <div className="receipt-separator text-sm" aria-hidden="true">
-          ================================
-        </div>
         <div className="print-muted flex items-baseline text-ink-muted">
           <span className="shrink-0 uppercase">SUBTOTAL</span>
           <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
@@ -199,16 +196,10 @@ export function TotalsSection({ items, taxTip, onChange }: TotalsSectionProps) {
           </>
         )}
 
-        <div className="receipt-separator text-sm" aria-hidden="true">
-          ================================
-        </div>
-        <div className="flex items-baseline text-xl font-bold text-ink">
+        <div className="flex items-baseline text-xl font-bold text-ink pt-1">
           <span className="shrink-0">TOTAL</span>
           <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
           <span className="shrink-0">{formatCents(total)}</span>
-        </div>
-        <div className="receipt-separator text-sm" aria-hidden="true">
-          ================================
         </div>
       </div>
     </Section>

@@ -115,18 +115,13 @@ export default function CollaborativeReceiptPage({
             items={receipt.items}
             people={receipt.people}
             activePerson={resolvedActivePerson}
+            unassignedCount={unassignedCount}
             onUpdate={receipt.updateItem}
             onDelete={receipt.deleteItem}
             onToggleAssignment={receipt.toggleAssignment}
             onAddItem={() => receipt.addItem("New Item", 1, 0)}
             onReorder={receipt.reorderItem}
           />
-        </div>
-      )}
-
-      {hasItems && hasPeople && !allAssigned && unassignedCount > 0 && (
-        <div className="no-print py-2 text-center font-receipt text-base text-accent">
-          {unassignedCount} item{unassignedCount !== 1 ? "s" : ""} unassigned
         </div>
       )}
 

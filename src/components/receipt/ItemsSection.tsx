@@ -9,6 +9,7 @@ interface ItemsSectionProps {
   items: ReceiptItem[];
   people: Person[];
   activePerson: string | null;
+  unassignedCount: number;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
@@ -20,6 +21,7 @@ export function ItemsSection({
   items,
   people,
   activePerson,
+  unassignedCount,
   onUpdate,
   onDelete,
   onToggleAssignment,
@@ -90,6 +92,11 @@ export function ItemsSection({
         <h3 className="font-receipt text-base uppercase text-ink-muted">
           Items{" "}
           <span className="font-receipt text-base text-ink-faded">({items.length})</span>
+          {unassignedCount > 0 && (
+            <span className="font-receipt text-sm text-accent">
+              {" "}· {unassignedCount} unassigned
+            </span>
+          )}
         </h3>
         <button
           type="button"

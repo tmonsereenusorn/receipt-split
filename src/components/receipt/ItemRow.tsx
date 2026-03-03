@@ -206,7 +206,7 @@ export function ItemRow({
               }
             }}
             className={`relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg ${
-              isStruck ? "text-ink-faded" : isUnassigned ? "text-accent" : "text-ink"
+              isStruck ? "text-ink-faded" : "text-ink"
             }`}
           >
             {/* Quantity prefix when > 1 */}
@@ -221,9 +221,6 @@ export function ItemRow({
             </span>
             {/* Price */}
             <span className="shrink-0">{formatCents(total)}</span>
-            {isUnassigned && !isStruck && (
-              <span className="ml-1 shrink-0 text-accent">*</span>
-            )}
 
             {/* SVG strikethrough overlay */}
             {isStruck && (
@@ -243,13 +240,20 @@ export function ItemRow({
 
           {/* Person initials below item */}
           {!isExpanded && (
-            <div className="flex gap-2 pb-1 pl-4">
+            <div className="flex items-center gap-1.5 pb-1 pl-2">
               {assignedPeople.length > 0 ? (
-                assignedPeople.map((p) => (
-                  <span key={p.id} className="font-hand text-base font-bold" style={{ color: p.color }}>
-                    {p.name.charAt(0).toUpperCase()}
-                  </span>
-                ))
+                <>
+                  <span className="text-ink-faded font-receipt text-sm">↳</span>
+                  {assignedPeople.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full font-hand text-xs font-bold leading-none"
+                      style={{ backgroundColor: p.color, color: '#faf5e8' }}
+                    >
+                      {p.name.charAt(0).toUpperCase()}
+                    </span>
+                  ))}
+                </>
               ) : !activePerson ? (
                 <span className={`font-hand text-sm italic ${people.length > 0 ? 'text-accent' : 'text-ink-faded'}`}>
                   (tap to assign)
@@ -263,7 +267,7 @@ export function ItemRow({
       {/* Expanded: edit + assignment */}
       {isExpanded && (
         <div className="space-y-3 px-2 pb-3 pt-1">
-          {/* Name input -- underlined blank */}
+          {/* Name input */}
           <input
             value={localName}
             onChange={(e) => setLocalName(e.target.value)}
