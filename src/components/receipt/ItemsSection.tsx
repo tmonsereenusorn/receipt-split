@@ -29,24 +29,25 @@ export function ItemsSection({
   return (
     <Section>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-          Items ({items.length})
+        <h3 className="font-receipt text-base uppercase text-ink-muted">
+          Items{" "}
+          <span className="font-receipt text-base text-ink-faded">({items.length})</span>
         </h3>
         <button
           type="button"
           onClick={onAddItem}
-          className="text-xs text-amber-500 hover:text-amber-400"
+          className="font-receipt text-base text-ink-muted underline hover:text-ink"
         >
           + add
         </button>
       </div>
 
       {items.length === 0 ? (
-        <p className="py-6 text-center font-mono text-xs text-zinc-600">
+        <p className="py-6 text-center font-receipt text-base text-ink-faded">
           no items yet
         </p>
       ) : (
-        <div className="-mx-3">
+        <div>
           {items.map((item) => (
             <ItemRow
               key={item.id}
