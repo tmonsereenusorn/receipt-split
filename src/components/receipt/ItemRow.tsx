@@ -32,14 +32,14 @@ export function ItemRow({
   const isQtyFocused = useRef(false);
 
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipeOpen, setIsSwipeOpen] = useState(false);
+  const [isStruck, setIsStruck] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const swipeOffsetRef = useRef(0);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isTouching = useRef(false);
   const swipeDirection = useRef<"none" | "horizontal" | "vertical">("none");
-  const DELETE_ZONE_WIDTH = 72;
-  const SWIPE_THRESHOLD = 50;
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isNameFocused.current) setLocalName(item.name);
@@ -51,7 +51,7 @@ export function ItemRow({
 
   useEffect(() => {
     setSwipeOffset(0);
-    setIsSwipeOpen(false);
+    setIsStruck(false);
   }, [isExpanded, activePerson]);
 
   const didSwipe = useRef(false);
@@ -80,27 +80,39 @@ export function ItemRow({
     if (swipeDirection.current === "vertical") return;
 
     didSwipe.current = true;
-    const base = swipeOffsetRef.current <= -DELETE_ZONE_WIDTH ? -DELETE_ZONE_WIDTH : 0;
-    const raw = base + dx;
-    const clamped = Math.max(-DELETE_ZONE_WIDTH, Math.min(0, raw));
+    const raw = dx;
+    const clamped = Math.min(0, raw);
     swipeOffsetRef.current = clamped;
     setSwipeOffset(clamped);
+
+    // Check if we've passed the 40% threshold
+    const rowWidth = rowRef.current?.offsetWidth ?? 300;
+    const shouldStrike = Math.abs(clamped) / rowWidth >= 0.4;
+    setIsStruck(shouldStrike);
   }, [activePerson, isExpanded]);
 
   const handlePointerEnd = useCallback(() => {
     if (activePerson || isExpanded) return;
     isTouching.current = false;
     if (swipeDirection.current !== "horizontal") return;
-    if (Math.abs(swipeOffsetRef.current) > SWIPE_THRESHOLD) {
-      swipeOffsetRef.current = -DELETE_ZONE_WIDTH;
-      setSwipeOffset(-DELETE_ZONE_WIDTH);
-      setIsSwipeOpen(true);
+
+    const rowWidth = rowRef.current?.offsetWidth ?? 300;
+    const pastThreshold = Math.abs(swipeOffsetRef.current) / rowWidth >= 0.4;
+
+    if (pastThreshold) {
+      // Keep struck, trigger removal animation
+      setIsStruck(true);
+      setIsRemoving(true);
+      setTimeout(() => {
+        onDelete(item.id);
+      }, 300);
     } else {
+      // Snap back
       swipeOffsetRef.current = 0;
       setSwipeOffset(0);
-      setIsSwipeOpen(false);
+      setIsStruck(false);
     }
-  }, [activePerson, isExpanded]);
+  }, [activePerson, isExpanded, onDelete, item.id]);
 
   // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -133,121 +145,117 @@ export function ItemRow({
   }, [activePerson, isExpanded, handlePointerStart, handlePointerMove, handlePointerEnd]);
 
   const total = item.quantity * item.priceCents;
-  const isUnassigned = people.length > 0 && item.assignedTo.length === 0;
   const allAssigned = people.length > 0 && people.every((p) => item.assignedTo.includes(p.id));
+  const assignedPeople = people.filter((p) => item.assignedTo.includes(p.id));
+
+  const handleToggleAll = () => {
+    const toToggle = allAssigned
+      ? people.map((p) => p.id)
+      : people.filter((p) => !item.assignedTo.includes(p.id)).map((p) => p.id);
+    toToggle.forEach((pid) => onToggleAssignment(item.id, pid));
+  };
 
   return (
     <div
-      className="transition-colors border-l-2"
-      style={{
-        borderLeftColor: activePerson
-          ? item.assignedTo.includes(activePerson)
-            ? (people.find((p) => p.id === activePerson)?.color ?? "transparent")
-            : "transparent"
-          : isUnassigned
-            ? "rgb(239, 68, 68)"
-            : "transparent",
-      }}
+      ref={rowRef}
+      className={`overflow-hidden transition-all duration-300 ${isRemoving ? "max-h-0 opacity-0" : "max-h-40"}`}
     >
       {/* Swipe container */}
       <div className="relative overflow-hidden">
-        {/* Delete zone (revealed on swipe) */}
-        {swipeOffset < 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              onDelete(item.id);
-              setSwipeOffset(0);
-              setIsSwipeOpen(false);
-            }}
-            className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-600 px-5 text-white transition-colors hover:bg-red-500"
-            style={{ width: DELETE_ZONE_WIDTH }}
-            aria-label="Delete item"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
-            </svg>
-          </button>
-        )}
-
         {/* Slideable row content */}
-        <button
-          type="button"
-          onClick={() => {
-            if (didSwipe.current) return;
-            if (isSwipeOpen) {
-              setSwipeOffset(0);
-              setIsSwipeOpen(false);
-              return;
-            }
-            if (activePerson) {
-              onToggleAssignment(item.id, activePerson);
-            } else {
-              onToggleExpand();
-            }
-          }}
+        <div
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onMouseDown={handleMouseDown}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-800/50 relative bg-zinc-900"
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: isTouching.current ? "none" : "transform 200ms ease-out",
           }}
         >
-          {/* Quantity */}
-          <span className="w-6 shrink-0 font-mono text-xs text-zinc-500">
-            {item.quantity}×
-          </span>
-
-          {/* Name */}
-          <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
-            {item.name}
-          </span>
-
-          {/* Assigned dots */}
-          {!isExpanded && item.assignedTo.length > 0 && (
-            <span className="flex shrink-0 gap-0.5">
-              {item.assignedTo.map((pid) => {
-                const person = people.find((p) => p.id === pid);
-                return person ? (
-                  <span
-                    key={pid}
-                    className="inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: person.color }}
-                  />
-                ) : null;
-              })}
+          {/* Collapsed row - the tappable button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (didSwipe.current) return;
+              if (activePerson) {
+                onToggleAssignment(item.id, activePerson);
+              } else {
+                onToggleExpand();
+              }
+            }}
+            className={`relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg ${
+              isStruck ? "text-ink-faded" : "text-ink"
+            }`}
+          >
+            {/* Quantity prefix when > 1 */}
+            {item.quantity > 1 && (
+              <span className="shrink-0 text-ink-muted">{item.quantity}x&nbsp;</span>
+            )}
+            {/* Item name */}
+            <span className="shrink-0 uppercase">{item.name}</span>
+            {/* Dot leaders filling the gap */}
+            <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
+              {"·".repeat(50)}
             </span>
-          )}
+            {/* Price */}
+            <span className="shrink-0">{formatCents(total)}</span>
 
-          {/* Price */}
-          <span className="shrink-0 font-mono text-sm text-zinc-300">
-            {formatCents(total)}
-          </span>
-        </button>
+            {/* SVG strikethrough overlay */}
+            {isStruck && (
+              <svg
+                className="pointer-events-none absolute inset-0 z-10"
+                viewBox="0 0 300 24"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 0,12 Q 15,8 30,12 T 60,12 T 90,12 T 120,12 T 150,12 T 180,12 T 210,12 T 240,12 T 270,12 T 300,12"
+                  className="strikethrough-line"
+                />
+              </svg>
+            )}
+          </button>
+
+          {/* Person initials below item */}
+          {!isExpanded && (
+            <div className="flex gap-2 pb-1 pl-4">
+              {assignedPeople.length > 0 ? (
+                assignedPeople.map((p) => (
+                  <span key={p.id} className="font-hand text-base font-bold" style={{ color: p.color }}>
+                    {p.name.charAt(0).toUpperCase()}
+                  </span>
+                ))
+              ) : !activePerson ? (
+                <span className="font-hand text-sm text-ink-faded italic">
+                  (tap to assign)
+                </span>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Expanded: edit + assignment */}
       {isExpanded && (
-        <div className="space-y-3 bg-zinc-800/30 px-3 pb-3">
-          {/* Edit fields */}
-          <div className="flex items-center gap-3 pt-1">
-            <input
-              value={localName}
-              onChange={(e) => setLocalName(e.target.value)}
-              onFocus={() => { isNameFocused.current = true; }}
-              onBlur={() => {
-                isNameFocused.current = false;
-                onUpdate(item.id, { name: localName });
-              }}
-              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-              className="min-w-0 flex-1 border-b border-amber-500/50 bg-transparent py-1 text-sm text-zinc-200 focus:border-amber-500 focus:outline-none"
-              aria-label="Item name"
-            />
-            <label className="flex items-center gap-1 text-xs text-zinc-500">
-              qty
+        <div className="space-y-3 px-2 pb-3 pt-1">
+          {/* Name input -- underlined blank */}
+          <input
+            value={localName}
+            onChange={(e) => setLocalName(e.target.value)}
+            onFocus={() => { isNameFocused.current = true; }}
+            onBlur={() => {
+              isNameFocused.current = false;
+              onUpdate(item.id, { name: localName });
+            }}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            className="w-full border-b-2 border-ink-faded bg-transparent font-receipt text-lg text-ink uppercase focus:border-ink focus:outline-none"
+            aria-label="Item name"
+          />
+          <div className="flex items-center gap-4">
+            {/* Qty input */}
+            <div className="flex items-center gap-1">
+              <span className="font-receipt text-sm text-ink-muted">QTY</span>
               <input
                 type="number"
                 min={1}
@@ -261,69 +269,62 @@ export function ItemRow({
                   onUpdate(item.id, { quantity: parsed });
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                className="w-10 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 text-center font-mono text-xs text-zinc-300"
+                className="w-12 border-b-2 border-ink-faded bg-transparent text-center font-receipt text-lg text-ink focus:border-ink focus:outline-none"
               />
-            </label>
-            <label className="flex items-center gap-1 text-xs text-zinc-500">
-              $
+            </div>
+            {/* Price input */}
+            <div className="flex items-center gap-1">
+              <span className="font-receipt text-sm text-ink-muted">$</span>
               <CurrencyInput
                 cents={item.priceCents}
                 onChangeCents={(cents) =>
                   onUpdate(item.id, { priceCents: cents })
                 }
-                className="w-16 rounded border border-zinc-700 bg-zinc-900 px-1 py-0.5 font-mono text-xs text-zinc-300"
+                className="w-16 border-b-2 border-ink-faded bg-transparent font-receipt text-lg text-ink focus:border-ink focus:outline-none"
               />
-            </label>
+            </div>
+            {/* Delete text button */}
             <button
               type="button"
               onClick={() => onDelete(item.id)}
-              className="shrink-0 p-1 text-zinc-600 transition-colors hover:text-red-400"
-              aria-label="Delete item"
+              className="ml-auto font-receipt text-sm text-accent underline"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
-              </svg>
+              delete
             </button>
           </div>
 
-          {/* Person assignment chips */}
+          {/* Person assignment */}
           {people.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  const toToggle = allAssigned
-                    ? people.map((p) => p.id)
-                    : people.filter((p) => !item.assignedTo.includes(p.id)).map((p) => p.id);
-                  toToggle.forEach((pid) => onToggleAssignment(item.id, pid));
-                }}
-                className="rounded border border-dashed border-zinc-600 px-2 py-0.5 font-mono text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-400"
+                onClick={handleToggleAll}
+                className="font-receipt text-xs text-ink-muted underline"
               >
-                {allAssigned ? "none" : "all"}
+                all/none
               </button>
               {people.map((person) => {
-                const assigned = item.assignedTo.includes(person.id);
+                const isAssigned = item.assignedTo.includes(person.id);
                 return (
                   <button
                     key={person.id}
                     type="button"
                     onClick={() => onToggleAssignment(item.id, person.id)}
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium transition-all"
-                    style={
-                      assigned
-                        ? { backgroundColor: person.color, color: "#18181b" }
-                        : { border: `1px solid ${person.color}60`, color: person.color }
-                    }
-                    aria-pressed={assigned}
-                    aria-label={`${assigned ? "Unassign" : "Assign"} ${person.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-full font-hand text-sm font-bold transition-all"
+                    style={{
+                      backgroundColor: isAssigned ? person.color : "transparent",
+                      color: isAssigned ? "#faf5e8" : person.color,
+                      border: isAssigned ? "none" : `2px solid ${person.color}`,
+                    }}
+                    aria-pressed={isAssigned}
+                    aria-label={`${isAssigned ? "Unassign" : "Assign"} ${person.name}`}
                   >
-                    {person.name}
+                    {person.name.charAt(0).toUpperCase()}
                   </button>
                 );
               })}
             </div>
           )}
-
         </div>
       )}
     </div>
