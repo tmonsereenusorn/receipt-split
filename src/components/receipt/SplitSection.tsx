@@ -67,7 +67,7 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
       <div className="space-y-0.5 pl-6">
         {items.map(({ item, shareCents, splitCount }) => (
           <div key={item.id} className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
-            <span className="shrink-0 truncate">
+            <span className="min-w-0 max-w-[60%] truncate">
               {item.name}
               {splitCount > 1 && (
                 <span className="text-ink-faded"> (1/{splitCount})</span>

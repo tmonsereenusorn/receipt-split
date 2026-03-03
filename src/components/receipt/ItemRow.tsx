@@ -167,7 +167,7 @@ export function ItemRow({
     >
       <div className="flex items-start">
         {/* Grip handle for drag reorder */}
-        {!isExpanded && (
+        {(
           <div
             className="no-print flex shrink-0 cursor-grab items-center py-2 pr-1 text-ink-faded select-none touch-none active:cursor-grabbing"
             onPointerDown={(e) => {
@@ -194,49 +194,82 @@ export function ItemRow({
             transition: isTouching.current ? "none" : "transform 200ms ease-out",
           }}
         >
-          {/* Collapsed row - the tappable button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (didSwipe.current) return;
-              if (activePerson) {
-                onToggleAssignment(item.id, activePerson);
-              } else {
-                onToggleExpand();
-              }
-            }}
-            className={`relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg ${
-              isStruck ? "text-ink-faded" : "text-ink"
-            }`}
-          >
-            {/* Quantity prefix when > 1 */}
-            {item.quantity > 1 && (
-              <span className="shrink-0 text-ink-muted">{item.quantity}x&nbsp;</span>
-            )}
-            {/* Item name */}
-            <span className="shrink-0 uppercase">{item.name}</span>
-            {/* Dot leaders filling the gap */}
-            <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
-              {"·".repeat(50)}
-            </span>
-            {/* Price */}
-            <span className="shrink-0">{formatCents(total)}</span>
+          {/* Row — button when collapsed, div when expanded (so input works inside) */}
+          {isExpanded ? (
+            <div
+              onClick={onToggleExpand}
+              className="relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg text-ink"
+            >
+              {/* Quantity prefix when > 1 */}
+              {item.quantity > 1 && (
+                <span className="shrink-0 text-ink-muted">{item.quantity}x&nbsp;</span>
+              )}
+              {/* Inline editable name */}
+              <input
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={() => { isNameFocused.current = true; }}
+                onBlur={() => {
+                  isNameFocused.current = false;
+                  onUpdate(item.id, { name: localName });
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                className="shrink-0 min-w-0 max-w-[60%] bg-transparent uppercase text-ink font-receipt text-lg border-b border-dashed border-ink-faded focus:border-solid focus:border-ink focus:outline-none"
+                aria-label="Item name"
+              />
+              {/* Dot leaders filling the gap */}
+              <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
+                {"·".repeat(50)}
+              </span>
+              {/* Price */}
+              <span className="shrink-0">{formatCents(total)}</span>
+              <span className="ml-1 shrink-0 text-ink-faded" onClick={onToggleExpand}>&#x25BE;</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (didSwipe.current) return;
+                if (activePerson) {
+                  onToggleAssignment(item.id, activePerson);
+                } else {
+                  onToggleExpand();
+                }
+              }}
+              className={`relative flex w-full items-baseline px-0 py-2 text-left font-receipt text-lg ${
+                isStruck ? "text-ink-faded" : "text-ink"
+              }`}
+            >
+              {/* Quantity prefix when > 1 */}
+              {item.quantity > 1 && (
+                <span className="shrink-0 text-ink-muted">{item.quantity}x&nbsp;</span>
+              )}
+              {/* Item name */}
+              <span className="min-w-0 max-w-[60%] truncate uppercase">{item.name}</span>
+              {/* Dot leaders filling the gap */}
+              <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
+                {"·".repeat(50)}
+              </span>
+              {/* Price */}
+              <span className="shrink-0">{formatCents(total)}</span>
 
-            {/* SVG strikethrough overlay */}
-            {isStruck && (
-              <svg
-                className="pointer-events-none absolute inset-0 z-10"
-                viewBox="0 0 300 24"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M 0,12 Q 15,8 30,12 T 60,12 T 90,12 T 120,12 T 150,12 T 180,12 T 210,12 T 240,12 T 270,12 T 300,12"
-                  className="strikethrough-line"
-                />
-              </svg>
-            )}
-          </button>
+              {/* SVG strikethrough overlay */}
+              {isStruck && (
+                <svg
+                  className="pointer-events-none absolute inset-0 z-10"
+                  viewBox="0 0 300 24"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M 0,12 Q 15,8 30,12 T 60,12 T 90,12 T 120,12 T 150,12 T 180,12 T 210,12 T 240,12 T 270,12 T 300,12"
+                    className="strikethrough-line"
+                  />
+                </svg>
+              )}
+            </button>
+          )}
 
           {/* Person initials below item */}
           {!isExpanded && (
@@ -267,19 +300,6 @@ export function ItemRow({
       {/* Expanded: edit + assignment */}
       {isExpanded && (
         <div className="space-y-3 px-2 pb-3 pt-1">
-          {/* Name input */}
-          <input
-            value={localName}
-            onChange={(e) => setLocalName(e.target.value)}
-            onFocus={() => { isNameFocused.current = true; }}
-            onBlur={() => {
-              isNameFocused.current = false;
-              onUpdate(item.id, { name: localName });
-            }}
-            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-            className="w-full border-b-2 border-ink-faded bg-transparent font-receipt text-lg text-ink uppercase focus:border-ink focus:outline-none"
-            aria-label="Item name"
-          />
           <div className="flex items-center gap-4">
             {/* Qty input */}
             <div className="flex items-center gap-1">
