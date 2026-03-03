@@ -97,7 +97,7 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
                 onClick={handleCopyText}
                 className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
               >
-                copy split
+                copy shplit
               </button>
             )}
             <button
