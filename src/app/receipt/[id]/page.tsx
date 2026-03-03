@@ -106,6 +106,10 @@ export default function CollaborativeReceiptPage({
         />
       </div>
 
+      <div className="receipt-separator text-sm py-2" aria-hidden="true">
+        ================================
+      </div>
+
       {hasItems && (
         <div className="no-print">
           <ItemsSection
