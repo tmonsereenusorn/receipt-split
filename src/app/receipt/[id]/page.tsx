@@ -38,7 +38,7 @@ export default function CollaborativeReceiptPage({
   if (receipt.loading) {
     return (
       <ReceiptTape>
-        <div className="py-12 text-center font-mono text-sm text-zinc-500">
+        <div className="py-12 text-center font-receipt text-base text-ink-muted">
           loading receipt...
         </div>
       </ReceiptTape>
@@ -48,7 +48,7 @@ export default function CollaborativeReceiptPage({
   if (receipt.error) {
     return (
       <ReceiptTape>
-        <div className="py-12 text-center font-mono text-sm text-red-400">
+        <div className="py-12 text-center font-receipt text-base text-accent">
           {receipt.error}
         </div>
       </ReceiptTape>
@@ -84,7 +84,7 @@ export default function CollaborativeReceiptPage({
       <div className="no-print px-3 pt-3">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-1 font-mono text-xs text-amber-500 transition-colors hover:bg-zinc-700"
+          className="inline-flex items-center gap-1 font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
         >
           <span aria-hidden="true">&larr;</span> new shplit
         </Link>
@@ -121,7 +121,7 @@ export default function CollaborativeReceiptPage({
       )}
 
       {hasItems && hasPeople && !allAssigned && unassignedCount > 0 && (
-        <div className="no-print py-2 text-center font-mono text-xs text-amber-500">
+        <div className="no-print py-2 text-center font-receipt text-base text-accent">
           {unassignedCount} item{unassignedCount !== 1 ? "s" : ""} unassigned
         </div>
       )}
