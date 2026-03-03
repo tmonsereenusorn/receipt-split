@@ -9,10 +9,6 @@
   --color-separator: #d4c9b8;
   --color-accent: #c0392b;
   --color-accent-muted: #c0392b40;
-
-  /* Keep backward compat tokens for any missed references */
-  --color-background: #1a1a1a;
-  --color-foreground: #2d2517;
 }
 
 body {

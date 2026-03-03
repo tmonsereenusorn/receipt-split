@@ -25,10 +25,13 @@ export function RecentSection({ recents, onRemove }: RecentSectionProps) {
               href={`/receipt/${r.id}`}
               className="flex min-w-0 flex-1 items-baseline justify-between py-1.5 font-receipt text-lg text-ink transition-colors hover:text-ink-muted"
             >
-              <span className="truncate text-ink group-hover:text-ink-muted">
+              <span className="shrink-0 truncate text-ink group-hover:text-ink-muted">
                 {r.name}
               </span>
-              <span className="ml-3 shrink-0 text-base text-ink-faded">
+              <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">
+                {"·".repeat(50)}
+              </span>
+              <span className="shrink-0 text-base text-ink-faded">
                 {timeAgo(r.viewedAt)}
               </span>
             </Link>

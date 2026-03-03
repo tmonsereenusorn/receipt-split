@@ -8,7 +8,7 @@ export function Section({
   return (
     <div className={`receipt-section py-4 ${className}`}>
       {children}
-      <div className="receipt-separator mt-4 text-sm" aria-hidden="true">
+      <div className="receipt-separator mt-4 text-sm last:hidden" aria-hidden="true">
         - - - - - - - - - - - - - - - - - - -
       </div>
     </div>

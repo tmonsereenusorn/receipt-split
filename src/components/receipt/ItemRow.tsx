@@ -158,7 +158,7 @@ export function ItemRow({
   return (
     <div
       ref={rowRef}
-      className={`overflow-hidden transition-all duration-300 ${isRemoving ? "max-h-0 opacity-0" : "max-h-40"}`}
+      className={`overflow-hidden transition-all duration-300 ${isRemoving ? "max-h-0 opacity-0" : "max-h-96"}`}
     >
       {/* Swipe container */}
       <div className="relative overflow-hidden">
