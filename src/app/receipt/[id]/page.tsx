@@ -8,7 +8,7 @@ import { calculateBreakdowns } from "@/lib/calculator";
 import { generateShareText, generateCsv } from "@/lib/format";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
-import { PeopleSection } from "@/components/receipt/PeopleSection";
+import { PeopleBar } from "@/components/receipt/PeopleBar";
 import { ItemsSection } from "@/components/receipt/ItemsSection";
 import { TotalsSection } from "@/components/receipt/TotalsSection";
 import { SplitSection } from "@/components/receipt/SplitSection";
@@ -91,23 +91,17 @@ export default function CollaborativeReceiptPage({
 
       <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName} />
 
-      <div className="no-print">
-        <PeopleSection
-          people={receipt.people}
-          items={receipt.items}
-          activePerson={resolvedActivePerson}
-          onSelectPerson={setActivePerson}
-          onAdd={receipt.addPerson}
-          onUpdate={receipt.updatePerson}
-          onDelete={(id) => {
-            receipt.deletePerson(id);
-          }}
-        />
-      </div>
-
-      <div className="receipt-separator text-sm py-2" aria-hidden="true">
-        ================================
-      </div>
+      <PeopleBar
+        people={receipt.people}
+        items={receipt.items}
+        activePerson={resolvedActivePerson}
+        onSelectPerson={setActivePerson}
+        onAdd={receipt.addPerson}
+        onUpdate={receipt.updatePerson}
+        onDelete={(id) => {
+          receipt.deletePerson(id);
+        }}
+      />
 
       {hasItems && (
         <div className="no-print">
