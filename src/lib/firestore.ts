@@ -80,7 +80,7 @@ export async function fsAddItem(id: string, item: ReceiptItem) {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    tx.update(ref, { items: [...data.items, item] });
+    tx.update(ref, { items: [item, ...data.items] });
   });
 }
 
