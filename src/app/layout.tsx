@@ -47,6 +47,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://shplit.vercel.app",
   },
+  verification: {
+    google: "nn-wOQmLESkY0KTb49-ngFQRkdfOZt71kdc1tSM7ZNQ",
+  },
 };
 
 export const viewport: Viewport = {
