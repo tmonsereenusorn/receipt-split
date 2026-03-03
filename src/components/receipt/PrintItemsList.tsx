@@ -12,28 +12,28 @@ export function PrintItemsList({ items }: PrintItemsListProps) {
   const subtotal = getSubtotalCents(items);
 
   return (
-    <div className="print-only print-page-break">
-      <h3 className="print-muted mb-3 text-xs font-medium uppercase tracking-wider">
+    <div className="print-only print-page-break font-receipt">
+      <h3 className="mb-3 font-receipt text-base uppercase text-ink-muted">
         Items
       </h3>
       <div className="space-y-1">
         {items.map((item) => {
           const total = item.quantity * item.priceCents;
           return (
-            <div key={item.id} className="flex items-center gap-2 font-mono text-sm">
-              <span className="print-muted w-6 shrink-0 text-xs">
+            <div key={item.id} className="flex items-center gap-2 font-receipt text-base text-ink">
+              <span className="w-6 shrink-0 text-ink-muted">
                 {item.quantity}×
               </span>
-              <span className="min-w-0 flex-1 truncate">{item.name}</span>
-              <span className="shrink-0">{formatCents(total)}</span>
+              <span className="min-w-0 flex-1 truncate text-ink">{item.name}</span>
+              <span className="shrink-0 text-ink">{formatCents(total)}</span>
             </div>
           );
         })}
       </div>
-      <div className="print-decorative mt-2 text-xs" aria-hidden="true">
+      <div className="receipt-separator mt-2 text-sm" aria-hidden="true">
         ================================
       </div>
-      <div className="mt-1 flex justify-between font-mono text-sm font-bold">
+      <div className="mt-1 flex justify-between font-receipt text-base font-bold text-ink">
         <span>SUBTOTAL</span>
         <span>{formatCents(subtotal)}</span>
       </div>
