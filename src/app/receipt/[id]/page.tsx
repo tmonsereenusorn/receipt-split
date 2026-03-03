@@ -89,19 +89,19 @@ export default function CollaborativeReceiptPage({
         </Link>
       </div>
 
-      <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName} />
-
-      <PeopleBar
-        people={receipt.people}
-        items={receipt.items}
-        activePerson={resolvedActivePerson}
-        onSelectPerson={setActivePerson}
-        onAdd={receipt.addPerson}
-        onUpdate={receipt.updatePerson}
-        onDelete={(id) => {
-          receipt.deletePerson(id);
-        }}
-      />
+      <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName}>
+        <PeopleBar
+          people={receipt.people}
+          items={receipt.items}
+          activePerson={resolvedActivePerson}
+          onSelectPerson={setActivePerson}
+          onAdd={receipt.addPerson}
+          onUpdate={receipt.updatePerson}
+          onDelete={(id) => {
+            receipt.deletePerson(id);
+          }}
+        />
+      </ReceiptHeader>
 
       {hasItems && (
         <div className="no-print">

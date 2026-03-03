@@ -5,9 +5,10 @@ import { useState, useEffect, useRef } from "react";
 interface ReceiptHeaderProps {
   restaurantName?: string | null;
   onChangeName?: (name: string) => void;
+  children?: React.ReactNode;
 }
 
-export function ReceiptHeader({ restaurantName, onChangeName }: ReceiptHeaderProps) {
+export function ReceiptHeader({ restaurantName, onChangeName, children }: ReceiptHeaderProps) {
   const [timestamp] = useState(() => {
     const now = new Date();
     return `${now.toLocaleDateString("en-US", {
@@ -61,6 +62,7 @@ export function ReceiptHeader({ restaurantName, onChangeName }: ReceiptHeaderPro
       <p className="print-muted mt-1 font-receipt text-base text-ink-muted">
         {timestamp}
       </p>
+      {children}
       <div className="print-decorative receipt-separator mt-2 text-sm select-none" aria-hidden="true">
         ================================
       </div>

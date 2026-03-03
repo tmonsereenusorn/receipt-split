@@ -42,13 +42,10 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
   const showAddInput = newName !== "" && !editingId;
 
   return (
-    <div className="no-print sticky top-0 z-20">
-      {/* Bar background — matches receipt paper */}
-      <div className="bg-paper px-4 pb-2 pt-3 shadow-sm shadow-black/10">
-        <div className="font-receipt text-base uppercase text-ink-muted mb-2">People</div>
-        <div className="flex items-center gap-2">
-          {/* People circles */}
-          <div className="flex flex-1 flex-wrap items-center gap-3 py-1">
+    <div className="no-print mt-3">
+      <div className="font-receipt text-base uppercase text-ink-muted mb-2 text-center">People</div>
+      <div className="flex justify-center">
+        <div className="flex flex-wrap items-center justify-center gap-3 py-1">
             {people.map((person) => {
               const isActive = activePerson === person.id;
               const initial = person.name.charAt(0).toUpperCase();
@@ -171,22 +168,21 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
           </div>
         </div>
 
-        {/* Active person hint */}
-        {activePeople && (
-          <p
-            className="mt-1 text-center font-hand text-base"
-            style={{ color: activePeople.color }}
-          >
-            tap items to assign to {activePeople.name}
-          </p>
-        )}
-        {people.length > 0 && items.length > 0 && !activePerson &&
-          items.some((item) => item.assignedTo.length === 0) && (
-          <p className="mt-1 text-center font-hand text-base text-ink-muted">
-            tap a person to start assigning items
-          </p>
-        )}
-      </div>
+      {/* Active person hint */}
+      {activePeople && (
+        <p
+          className="mt-1 text-center font-hand text-base"
+          style={{ color: activePeople.color }}
+        >
+          tap items to assign to {activePeople.name}
+        </p>
+      )}
+      {people.length > 0 && items.length > 0 && !activePerson &&
+        items.some((item) => item.assignedTo.length === 0) && (
+        <p className="mt-1 text-center font-hand text-base text-ink-muted">
+          tap a person to start assigning items
+        </p>
+      )}
     </div>
   );
 }
