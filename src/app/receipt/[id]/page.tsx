@@ -141,8 +141,8 @@ export default function CollaborativeReceiptPage({
         <TotalsSection items={receipt.items} taxTip={receipt.taxTip} />
       )}
 
-      {allAssigned && hasPeople && (
-        <SplitSection breakdowns={breakdowns} />
+      {hasPeople && (
+        <SplitSection breakdowns={breakdowns} allAssigned={allAssigned} />
       )}
 
       <ShareSection

@@ -6,9 +6,10 @@ import { Section } from "./Section";
 
 interface SplitSectionProps {
   breakdowns: PersonBreakdown[];
+  allAssigned?: boolean;
 }
 
-export function SplitSection({ breakdowns }: SplitSectionProps) {
+export function SplitSection({ breakdowns, allAssigned }: SplitSectionProps) {
   if (breakdowns.length === 0 || breakdowns.every((b) => b.totalCents === 0)) {
     return null;
   }
@@ -18,6 +19,11 @@ export function SplitSection({ breakdowns }: SplitSectionProps) {
       <div className="receipt-separator mb-3 text-center" aria-hidden="true">
         - - - - - SPLIT - - - - -
       </div>
+      {!allAssigned && (
+        <p className="mb-3 text-center font-hand text-sm italic text-ink-muted">
+          * totals may change as items get assigned
+        </p>
+      )}
       <div className="space-y-3">
         {breakdowns.map((breakdown, i) => (
           <div key={breakdown.person.id}>
