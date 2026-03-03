@@ -176,8 +176,9 @@ describe("calculateBreakdowns", () => {
 
     const breakdowns = calculateBreakdowns(items, people, taxTip);
 
-    const subtotal = getSubtotalCents(items);
-    const grandTotal = subtotal + getEffectiveTaxCents(taxTip, subtotal) + getEffectiveTipCents(taxTip, subtotal);
+    // Tax/tip is based on assigned subtotal, not full receipt subtotal
+    const assignedSubtotal = breakdowns.reduce((s, b) => s + b.subtotalCents, 0);
+    const grandTotal = assignedSubtotal + getEffectiveTaxCents(taxTip, assignedSubtotal) + getEffectiveTipCents(taxTip, assignedSubtotal);
     const personTotal = breakdowns.reduce((s, b) => s + b.totalCents, 0);
 
     expect(personTotal).toBe(grandTotal);
@@ -192,6 +193,32 @@ describe("calculateBreakdowns", () => {
     // 3 * $6.00 = $18.00
     expect(breakdowns[0].subtotalCents).toBe(1800);
     expect(breakdowns[0].totalCents).toBe(1800);
+  });
+
+  it("computes tax/tip from assigned subtotal, not full receipt", () => {
+    const items = [
+      makeItem("a", 6000, ["p1"]),
+      makeItem("b", 4000, ["p2"]),
+      makeItem("unassigned", 5000, []),
+    ];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const taxTip: TaxTip = {
+      ...defaultTaxTip,
+      taxIsPercent: true,
+      taxPercent: 10,
+      tipIsPercent: true,
+      tipPercent: 20,
+    };
+
+    const breakdowns = calculateBreakdowns(items, people, taxTip);
+
+    // Tax/tip should be based on assigned subtotal ($100), not full receipt ($150)
+    // p1: 10% of $60 = $6 tax, 20% of $60 = $12 tip
+    // p2: 10% of $40 = $4 tax, 20% of $40 = $8 tip
+    expect(breakdowns[0].taxShareCents).toBe(600);
+    expect(breakdowns[0].tipShareCents).toBe(1200);
+    expect(breakdowns[1].taxShareCents).toBe(400);
+    expect(breakdowns[1].tipShareCents).toBe(800);
   });
 
   it("handles no assignments", () => {

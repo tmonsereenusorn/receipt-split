@@ -91,10 +91,6 @@ export function calculateBreakdowns(
   people: Person[],
   taxTip: TaxTip
 ): PersonBreakdown[] {
-  const subtotalCents = getSubtotalCents(items);
-  const effectiveTaxCents = getEffectiveTaxCents(taxTip, subtotalCents);
-  const effectiveTipCents = getEffectiveTipCents(taxTip, subtotalCents);
-
   // Build per-person item shares
   const breakdowns: PersonBreakdown[] = people.map((person) => {
     const personItems: PersonBreakdown["items"] = [];
@@ -126,9 +122,12 @@ export function calculateBreakdowns(
     };
   });
 
-  // Distribute tax and tip proportionally
+  // Compute tax/tip based on assigned items only so each person's
+  // share equals taxRate * their subtotal (not inflated by unassigned items)
   const personSubtotals = breakdowns.map((b) => b.subtotalCents);
   const totalPersonSubtotal = personSubtotals.reduce((a, b) => a + b, 0);
+  const effectiveTaxCents = getEffectiveTaxCents(taxTip, totalPersonSubtotal);
+  const effectiveTipCents = getEffectiveTipCents(taxTip, totalPersonSubtotal);
 
   const taxShares = distributeProportionally(
     effectiveTaxCents,
