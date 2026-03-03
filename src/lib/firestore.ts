@@ -1,6 +1,7 @@
 import {
   doc,
   addDoc,
+  getDoc,
   updateDoc,
   collection,
   runTransaction,
@@ -26,6 +27,12 @@ function requireData(snap: DocumentSnapshot): ReceiptDoc {
 
 function receiptRef(id: string) {
   return doc(db, COLLECTION, id);
+}
+
+/** Fetch a receipt document once (for server-side use). */
+export async function getReceipt(id: string): Promise<ReceiptDoc | null> {
+  const snap = await getDoc(receiptRef(id));
+  return snap.exists() ? (snap.data() as ReceiptDoc) : null;
 }
 
 /** Create a new receipt document. Returns the document ID. */
