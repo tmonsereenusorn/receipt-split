@@ -1,31 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --tape-bg: #18181b;
-  --accent: #f59e0b;
-  --muted: #71717a;
-  --separator: #3f3f46;
-  --surface: #27272a;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-tape: var(--tape-bg);
-  --color-accent: var(--accent);
-  --color-muted: var(--muted);
-  --color-separator: var(--separator);
-  --color-surface: var(--surface);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-page-bg: #1a1a1a;
+  --color-paper: #faf5e8;
+  --color-ink: #2d2517;
+  --color-ink-muted: #8c7e6a;
+  --color-ink-faded: #c4b9a8;
+  --color-separator: #d4c9b8;
+  --color-accent: #c0392b;
+  --color-accent-muted: #c0392b40;
+
+  /* Keep backward compat tokens for any missed references */
+  --color-background: #1a1a1a;
+  --color-foreground: #2d2517;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background: var(--color-page-bg);
+  color: var(--color-ink);
+}
+
+/* Receipt base font — thermal printer style */
+.font-receipt {
+  font-family: var(--font-receipt), monospace;
+}
+
+/* Handwritten annotation font */
+.font-hand {
+  font-family: var(--font-handwritten), cursive;
+}
+
+/* Paper noise texture (pure CSS, no images) */
+.paper-texture {
+  background-color: var(--color-paper);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.01) 2px,
+      rgba(0, 0, 0, 0.01) 4px
+    );
+}
+
+/* Character separator — printed dashes */
+.receipt-separator {
+  font-family: var(--font-receipt), monospace;
+  color: var(--color-separator);
+  user-select: none;
+  text-align: center;
+  letter-spacing: 0.1em;
+}
+
+/* Strikethrough SVG line style */
+.strikethrough-line {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
 }
 
 .print-only {
@@ -46,8 +78,8 @@ body {
   /* Light background, dark text */
   body {
     background: white !important;
-    color: #171717 !important;
-    font-size: 11pt;
+    color: #2d2517 !important;
+    font-size: 11pt !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -59,9 +91,9 @@ body {
     margin: 0 auto !important;
   }
 
-  /* Receipt tape container: remove dark bg, shadow, torn edges */
+  /* Receipt tape container: remove bg, shadow, torn edges */
   .receipt-tape {
-    background: transparent !important;
+    background: white !important;
     box-shadow: none !important;
   }
 
@@ -69,25 +101,25 @@ body {
     display: none !important;
   }
 
-  /* Section separators: light gray instead of zinc-700 */
+  /* Section separators */
   .receipt-section {
-    border-color: #d1d5db !important;
+    border-color: #d4c9b8 !important;
     padding-top: 0.75rem !important;
     padding-bottom: 0.75rem !important;
   }
 
   /* Override all dark text colors to print-friendly values */
   .receipt-tape * {
-    color: #171717 !important;
+    color: #2d2517 !important;
   }
 
   .receipt-tape .print-muted {
-    color: #6b7280 !important;
+    color: #8c7e6a !important;
   }
 
   /* Decorative separators */
   .receipt-tape .print-decorative {
-    color: #9ca3af !important;
+    color: #c4b9a8 !important;
   }
 
   /* Keep person color dots visible */
