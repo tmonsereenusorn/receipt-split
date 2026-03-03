@@ -167,7 +167,7 @@ export function ItemRow({
     >
       <div className="flex items-start">
         {/* Grip handle for drag reorder */}
-        {!activePerson && !isExpanded && (
+        {!isExpanded && (
           <div
             className="no-print flex shrink-0 cursor-grab items-center py-2 pr-1 text-ink-faded select-none touch-none active:cursor-grabbing"
             onPointerDown={(e) => {
@@ -254,11 +254,11 @@ export function ItemRow({
                     </span>
                   ))}
                 </>
-              ) : !activePerson ? (
+              ) : (
                 <span className={`font-hand text-sm italic ${people.length > 0 ? 'text-accent' : 'text-ink-faded'}`}>
                   (tap to assign)
                 </span>
-              ) : null}
+              )}
             </div>
           )}
         </div>
