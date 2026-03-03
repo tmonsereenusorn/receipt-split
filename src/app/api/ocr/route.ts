@@ -35,7 +35,8 @@ function makeId(): string {
 }
 
 function parseAndValidate(text: string): ClaudeResponse {
-  const parsed = JSON.parse(text);
+  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+  const parsed = JSON.parse(cleaned);
 
   const restaurantName =
     typeof parsed.restaurantName === "string" ? parsed.restaurantName : null;
@@ -91,40 +92,60 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Strip data URI prefix to get raw base64
+  // Extract media type and raw base64 from data URI
+  const match = dataUrl.match(/^data:(image\/\w+);base64,/);
+  const mediaType = match?.[1] ?? "image/jpeg";
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
 
-  const anthropicResponse = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: base64,
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  let anthropicResponse: Response;
+  try {
+    anthropicResponse = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: base64,
+                },
               },
-            },
-            {
-              type: "text",
-              text: EXTRACTION_PROMPT,
-            },
-          ],
-        },
-      ],
-    }),
-  });
+              {
+                type: "text",
+                text: EXTRACTION_PROMPT,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return NextResponse.json(
+        { error: "OCR service timeout" },
+        { status: 504 }
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!anthropicResponse.ok) {
     const err = await anthropicResponse.text();
