@@ -55,15 +55,15 @@ export default function LandingPage() {
   return (
     <ReceiptTape>
       <div className="py-8 text-center">
-        <h1 className="font-mono text-5xl font-bold uppercase tracking-[0.3em] -mr-[0.3em] text-zinc-100">
+        <h1 className="font-receipt text-5xl uppercase tracking-[0.15em] text-ink">
           Shplit
         </h1>
       </div>
       {error && (
-        <p className="py-2 text-center font-mono text-xs text-red-400">{error}</p>
+        <p className="py-2 text-center font-receipt text-base text-accent">{error}</p>
       )}
       {isCreating ? (
-        <div className="py-8 text-center font-mono text-sm text-zinc-500">
+        <div className="py-8 text-center font-receipt text-base text-ink-muted">
           creating receipt...
         </div>
       ) : (
@@ -72,7 +72,7 @@ export default function LandingPage() {
         </div>
       )}
       {recents.length > 0 && (
-        <div className="py-2 text-center font-mono text-xs text-zinc-600 select-none" aria-hidden="true">
+        <div className="receipt-separator text-sm select-none" aria-hidden="true">
           ================================
         </div>
       )}
