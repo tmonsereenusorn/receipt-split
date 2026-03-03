@@ -4,13 +4,12 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useFirestoreReceipt } from "@/hooks/useFirestoreReceipt";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
-import { calculateBreakdowns, getSubtotalCents } from "@/lib/calculator";
+import { calculateBreakdowns } from "@/lib/calculator";
 import { generateShareText, generateCsv } from "@/lib/format";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ReceiptHeader } from "@/components/receipt/ReceiptHeader";
 import { PeopleSection } from "@/components/receipt/PeopleSection";
 import { ItemsSection } from "@/components/receipt/ItemsSection";
-import { TaxTipSection } from "@/components/receipt/TaxTipSection";
 import { TotalsSection } from "@/components/receipt/TotalsSection";
 import { SplitSection } from "@/components/receipt/SplitSection";
 import { ShareSection } from "@/components/receipt/ShareSection";
@@ -132,13 +131,7 @@ export default function CollaborativeReceiptPage({
       )}
 
       {hasItems && (
-        <div className="no-print">
-          <TaxTipSection taxTip={receipt.taxTip} subtotalCents={getSubtotalCents(receipt.items)} onChange={receipt.setTaxTip} />
-        </div>
-      )}
-
-      {hasItems && (
-        <TotalsSection items={receipt.items} taxTip={receipt.taxTip} />
+        <TotalsSection items={receipt.items} taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
       )}
 
       {hasPeople && (
