@@ -134,6 +134,25 @@ export async function fsMoveItem(
   });
 }
 
+/** Atomic: reorder item to a new index */
+export async function fsReorderItem(
+  id: string,
+  itemId: string,
+  newIndex: number
+) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const items = [...data.items];
+    const oldIndex = items.findIndex((i) => i.id === itemId);
+    if (oldIndex === -1) return;
+    const [item] = items.splice(oldIndex, 1);
+    items.splice(newIndex, 0, item);
+    tx.update(ref, { items });
+  });
+}
+
 /** Atomic: add person */
 export async function fsAddPerson(id: string, person: Person) {
   await runTransaction(db, async (tx) => {

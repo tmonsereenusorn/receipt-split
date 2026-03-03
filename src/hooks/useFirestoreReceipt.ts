@@ -14,6 +14,7 @@ import {
   fsUpdateItem,
   fsDeleteItem,
   fsMoveItem,
+  fsReorderItem,
   fsAddPerson,
   fsUpdatePerson,
   fsDeletePerson,
@@ -93,6 +94,13 @@ export function useFirestoreReceipt(receiptId: string) {
     [receiptId]
   );
 
+  const reorderItem = useCallback(
+    (itemId: string, newIndex: number) => {
+      fsReorderItem(receiptId, itemId, newIndex);
+    },
+    [receiptId]
+  );
+
   const addPerson = useCallback(
     (name: string) => {
       const color = PERSON_COLORS[people.length % PERSON_COLORS.length];
@@ -151,6 +159,7 @@ export function useFirestoreReceipt(receiptId: string) {
     updateItem,
     deleteItem,
     moveItem,
+    reorderItem,
     addPerson,
     updatePerson,
     deletePerson,
