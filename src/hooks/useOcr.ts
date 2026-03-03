@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { OcrResult } from "@/lib/ocr";
 
 export function useOcr() {
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<OcrResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -14,9 +15,9 @@ export function useOcr() {
 
     try {
       const { recognizeImage } = await import("@/lib/ocr");
-      const text = await recognizeImage(image);
-      setResult(text);
-      return text;
+      const ocrResult = await recognizeImage(image);
+      setResult(ocrResult);
+      return ocrResult;
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "OCR failed";

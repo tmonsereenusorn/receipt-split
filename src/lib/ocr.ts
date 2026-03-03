@@ -1,10 +1,16 @@
 import { prepareImageBase64 } from "./image";
+import type { ReceiptItem } from "@/types";
+
+export interface OcrResult {
+  restaurantName: string | null;
+  items: ReceiptItem[];
+}
 
 /**
- * Run OCR on an image via the server-side Google Cloud Vision API route.
- * Resizes the image client-side before uploading.
+ * Send a receipt image to the server-side Claude Vision API route.
+ * Returns structured receipt data (restaurant name + parsed items).
  */
-export async function recognizeImage(image: File | string): Promise<string> {
+export async function recognizeImage(image: File | string): Promise<OcrResult> {
   const base64DataUrl = await prepareImageBase64(image);
 
   const response = await fetch("/api/ocr", {
@@ -25,8 +31,8 @@ export async function recognizeImage(image: File | string): Promise<string> {
   }
 
   const data = await response.json();
-  if (typeof data.text !== "string") {
-    throw new Error("OCR response missing text field");
-  }
-  return data.text;
+  return {
+    restaurantName: data.restaurantName ?? null,
+    items: Array.isArray(data.items) ? data.items : [],
+  };
 }
