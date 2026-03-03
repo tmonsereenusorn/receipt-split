@@ -66,43 +66,51 @@ export function ShareSection({ shareText, csvText }: ShareSectionProps) {
 
   return (
     <Section className="no-print">
-      <div className="flex flex-wrap justify-center gap-2">
-        <button
-          type="button"
-          onClick={handleCopyLink}
-          className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
-        >
-          {copiedLink ? "✓ copied" : "copy link"}
-        </button>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+        {copiedLink ? (
+          <span className="font-receipt text-base font-bold text-ink">copied!</span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
+          >
+            copy link
+          </button>
+        )}
         {canShare && (
           <button
             type="button"
             onClick={handleShare}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+            className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
           >
             share
           </button>
         )}
         {hasExportData && (
           <>
-            <button
-              type="button"
-              onClick={handleCopyText}
-              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
-            >
-              {copiedText ? "✓ copied" : "copy split"}
-            </button>
+            {copiedText ? (
+              <span className="font-receipt text-base font-bold text-ink">copied!</span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCopyText}
+                className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
+              >
+                copy split
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.print()}
-              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+              className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
             >
               pdf
             </button>
             <button
               type="button"
               onClick={handleExportCsv}
-              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-700"
+              className="font-receipt text-base text-ink-muted underline decoration-ink-faded underline-offset-2 transition-colors hover:text-ink"
             >
               csv
             </button>
