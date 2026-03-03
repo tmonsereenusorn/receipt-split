@@ -60,14 +60,25 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                     e.preventDefault();
                     saveEdit();
                   }}
+                  className="flex items-center gap-1"
                 >
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-24 border-b-2 border-ink-faded bg-transparent font-hand text-lg text-ink focus:border-ink focus:outline-none px-1"
+                    className="w-20 border-b-2 border-ink-faded bg-transparent font-hand text-lg text-ink focus:border-ink focus:outline-none px-1"
                     autoFocus
-                    onBlur={saveEdit}
+                    onBlur={() => {
+                      setTimeout(saveEdit, 150);
+                    }}
                   />
+                  <button
+                    type="submit"
+                    disabled={!editName.trim()}
+                    className={`font-receipt text-lg transition-colors ${editName.trim() ? 'text-ink hover:text-ink-muted' : 'text-ink-faded'}`}
+                    aria-label="Save name"
+                  >
+                    ✓
+                  </button>
                 </form>
               ) : (
                 <>
@@ -132,17 +143,28 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
             +
           </button>
         ) : !editingId ? (
-          <form onSubmit={handleAdd} className="flex items-center">
+          <form onSubmit={handleAdd} className="flex items-center gap-1">
             <input
               value={newName.trim()}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="name"
-              className="w-24 border-b-2 border-ink-faded bg-transparent font-hand text-lg text-ink placeholder:text-ink-faded focus:border-ink focus:outline-none px-1"
+              className="w-20 border-b-2 border-ink-faded bg-transparent font-hand text-lg text-ink placeholder:text-ink-faded focus:border-ink focus:outline-none px-1"
               autoFocus
               onBlur={() => {
-                if (!newName.trim()) setNewName("");
+                // Small delay so the checkmark click registers before blur
+                setTimeout(() => {
+                  if (!newName.trim()) setNewName("");
+                }, 150);
               }}
             />
+            <button
+              type="submit"
+              disabled={!newName.trim()}
+              className={`font-receipt text-lg transition-colors ${newName.trim() ? 'text-ink hover:text-ink-muted' : 'text-ink-faded'}`}
+              aria-label="Confirm name"
+            >
+              ✓
+            </button>
           </form>
         ) : null}
       </div>
