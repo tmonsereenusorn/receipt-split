@@ -20,29 +20,39 @@ export function TotalsSection({ items, taxTip }: TotalsSectionProps) {
 
   return (
     <Section>
-      <div className="print-no-break space-y-1.5 font-mono text-sm">
-        <div className="print-muted flex justify-between text-zinc-400">
-          <span>SUBTOTAL</span>
-          <span className="text-zinc-300">{formatCents(subtotal)}</span>
-        </div>
-        <div className="print-muted flex justify-between text-zinc-400">
-          <span>
-            TAX{taxTip.taxIsPercent ? ` (${taxTip.taxPercent}%)` : ""}
-          </span>
-          <span className="text-zinc-300">{formatCents(tax)}</span>
-        </div>
-        <div className="print-muted flex justify-between text-zinc-400">
-          <span>
-            TIP{taxTip.tipIsPercent ? ` (${taxTip.tipPercent}%)` : ""}
-          </span>
-          <span className="text-zinc-300">{formatCents(tip)}</span>
-        </div>
-        <div className="print-decorative text-xs text-zinc-600 select-none" aria-hidden="true">
+      <div className="print-no-break space-y-1 font-receipt text-lg">
+        <div className="receipt-separator text-sm" aria-hidden="true">
           ================================
         </div>
-        <div className="flex justify-between text-base font-bold text-zinc-100">
-          <span>TOTAL</span>
-          <span>{formatCents(total)}</span>
+        <div className="print-muted flex items-baseline text-ink-muted">
+          <span className="shrink-0 uppercase">SUBTOTAL</span>
+          <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+          <span className="shrink-0">{formatCents(subtotal)}</span>
+        </div>
+        <div className="print-muted flex items-baseline text-ink-muted">
+          <span className="shrink-0 uppercase">
+            TAX{taxTip.taxIsPercent ? ` (${taxTip.taxPercent}%)` : ""}
+          </span>
+          <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+          <span className="shrink-0">{formatCents(tax)}</span>
+        </div>
+        <div className="print-muted flex items-baseline text-ink-muted">
+          <span className="shrink-0 uppercase">
+            TIP{taxTip.tipIsPercent ? ` (${taxTip.tipPercent}%)` : ""}
+          </span>
+          <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+          <span className="shrink-0">{formatCents(tip)}</span>
+        </div>
+        <div className="receipt-separator text-sm" aria-hidden="true">
+          ================================
+        </div>
+        <div className="flex items-baseline text-xl font-bold text-ink">
+          <span className="shrink-0">TOTAL</span>
+          <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+          <span className="shrink-0">{formatCents(total)}</span>
+        </div>
+        <div className="receipt-separator text-sm" aria-hidden="true">
+          ================================
         </div>
       </div>
     </Section>
