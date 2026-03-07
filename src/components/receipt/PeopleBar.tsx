@@ -81,7 +81,7 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                   <button
                     type="button"
                     onClick={() => onSelectPerson(isActive ? null : person.id)}
-                    className="relative flex h-8 items-center justify-center rounded-full px-3 font-hand text-base font-bold transition-all"
+                    className="relative block h-8 max-w-[8rem] truncate rounded-full px-3 font-hand text-base font-bold leading-8 transition-all"
                     style={
                       isActive
                         ? {

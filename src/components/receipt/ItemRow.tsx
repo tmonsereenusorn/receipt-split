@@ -280,7 +280,7 @@ export function ItemRow({
                   {assignedPeople.map((p) => (
                     <span
                       key={p.id}
-                      className="inline-flex h-5 max-w-[4rem] items-center justify-center truncate rounded-full px-1.5 font-hand text-xs font-bold leading-none"
+                      className="inline-block h-5 max-w-[4rem] truncate rounded-full px-1.5 font-hand text-xs font-bold leading-5"
                       style={{ backgroundColor: p.color, color: '#faf5e8' }}
                     >
                       {p.name}
@@ -358,7 +358,7 @@ export function ItemRow({
                     key={person.id}
                     type="button"
                     onClick={() => onToggleAssignment(item.id, person.id)}
-                    className="flex h-7 items-center justify-center rounded-full px-2.5 font-hand text-sm font-bold transition-all"
+                    className="block h-7 max-w-[6rem] truncate rounded-full px-2.5 font-hand text-sm font-bold leading-7 transition-all"
                     style={{
                       backgroundColor: isAssigned ? person.color : "transparent",
                       color: isAssigned ? "#faf5e8" : person.color,
