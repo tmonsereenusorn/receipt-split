@@ -50,12 +50,6 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
       {/* Person header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span
-            className="person-dot inline-flex h-6 w-6 items-center justify-center rounded-full font-hand text-sm font-bold"
-            style={{ backgroundColor: person.color, color: '#faf5e8' }}
-          >
-            {person.name.charAt(0).toUpperCase()}
-          </span>
           <span className="font-hand text-lg font-bold" style={{ color: person.color }}>{person.name}</span>
         </div>
         <span className="font-receipt text-lg font-bold text-ink">

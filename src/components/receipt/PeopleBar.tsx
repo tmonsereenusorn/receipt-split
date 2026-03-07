@@ -48,7 +48,6 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
         <div className="flex flex-wrap items-center justify-center gap-3 py-1">
             {people.map((person) => {
               const isActive = activePerson === person.id;
-              const initial = person.name.charAt(0).toUpperCase();
               const itemCount = items.filter((item) => item.assignedTo.includes(person.id)).length;
 
               if (editingId === person.id) {
@@ -82,14 +81,14 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                   <button
                     type="button"
                     onClick={() => onSelectPerson(isActive ? null : person.id)}
-                    className="relative flex h-9 w-9 items-center justify-center rounded-full font-hand text-base font-bold transition-all"
+                    className="relative flex h-8 items-center justify-center rounded-full px-3 font-hand text-base font-bold transition-all"
                     style={
                       isActive
                         ? {
                             backgroundColor: person.color,
                             color: "#faf5e8",
                             boxShadow: `0 0 0 3px ${person.color}40`,
-                            transform: "scale(1.1)",
+                            transform: "scale(1.05)",
                           }
                         : {
                             backgroundColor: "transparent",
@@ -100,7 +99,7 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                     aria-pressed={isActive}
                     aria-label={`Select ${person.name}`}
                   >
-                    {initial}
+                    {person.name}
                     {items.length > 0 && itemCount > 0 && (
                       <span className="absolute -bottom-1 -right-1 rounded-full bg-paper px-1 font-receipt text-[10px] text-ink-muted">
                         {itemCount}
