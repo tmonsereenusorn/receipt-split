@@ -187,17 +187,26 @@ export function useFirestoreReceipt(receiptId: string) {
   );
 
   const setTaxTip = useCallback(
-    (updates: Partial<TaxTip>) => { fsSetTaxTip(receiptId, updates); },
+    (updates: Partial<TaxTip>) => {
+      setData(prev => prev ? { ...prev, taxTip: { ...prev.taxTip, ...updates } } : prev);
+      fsSetTaxTip(receiptId, updates);
+    },
     [receiptId]
   );
 
   const setRestaurantName = useCallback(
-    (name: string | null) => { fsSetRestaurantName(receiptId, name); },
+    (name: string | null) => {
+      setData(prev => prev ? { ...prev, restaurantName: name } : prev);
+      fsSetRestaurantName(receiptId, name);
+    },
     [receiptId]
   );
 
   const setOcrText = useCallback(
-    (text: string) => { fsSetOcrText(receiptId, text); },
+    (text: string) => {
+      setData(prev => prev ? { ...prev, ocrText: text } : prev);
+      fsSetOcrText(receiptId, text);
+    },
     [receiptId]
   );
 
