@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceipt } from "@/lib/firestore";
+import { initialTaxTip } from "@/types";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
@@ -22,6 +23,7 @@ export default function LandingPage() {
         items: result.items,
         restaurantName: result.restaurantName,
         ocrText: result.ocrText,
+        ...(result.taxTip && { taxTip: { ...initialTaxTip, ...result.taxTip } }),
       });
       router.push(`/receipt/${id}`);
     } catch {

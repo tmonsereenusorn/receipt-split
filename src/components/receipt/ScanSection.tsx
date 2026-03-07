@@ -7,13 +7,14 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatCents } from "@/lib/format";
-import type { ReceiptItem } from "@/types";
+import type { ReceiptItem, TaxTip } from "@/types";
 
 export interface ScanResult {
   items: ReceiptItem[];
   restaurantName: string | null;
   ocrText: string | null;
   imageDataUrl: string;
+  taxTip: Partial<TaxTip> | null;
 }
 
 interface ScanSectionProps {
@@ -30,11 +31,19 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
 
     const result = await ocr.recognize(file);
     if (result) {
+      const taxTip: Partial<TaxTip> | null =
+        result.taxCents != null || result.tipCents != null
+          ? {
+              ...(result.taxCents != null && { taxCents: result.taxCents, taxIsPercent: false }),
+              ...(result.tipCents != null && { tipCents: result.tipCents, tipIsPercent: false }),
+            }
+          : null;
       onScanResult({
         items: result.items,
         restaurantName: result.restaurantName,
         ocrText: null,
         imageDataUrl: dataUrl,
+        taxTip,
       });
     }
   }
