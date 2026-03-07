@@ -30,8 +30,8 @@ export interface TaxTip {
 
 export const initialTaxTip: TaxTip = {
   taxCents: 0,
-  taxIsPercent: false,
-  taxPercent: 0,
+  taxIsPercent: true,
+  taxPercent: 7,
   tipCents: 0,
   tipIsPercent: true,
   tipPercent: 20,
