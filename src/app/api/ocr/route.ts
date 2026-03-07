@@ -3,20 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
 
-const EXTRACTION_PROMPT = `Extract line items from this receipt image. Return JSON only, no markdown.
+const EXTRACTION_PROMPT = `Extract line items, tax, and tip from this receipt image. Return JSON only, no markdown.
 
 {
   "restaurantName": "string or null",
   "items": [
     { "name": "string", "quantity": number, "priceCents": number }
-  ]
+  ],
+  "taxCents": number or null,
+  "tipCents": number or null
 }
 
 Rules:
 - priceCents is the unit price in integer cents (e.g., $12.99 → 1299)
 - Default quantity to 1 unless explicitly shown
-- Exclude tax, tip, subtotal, total, discounts, service charges
-- Exclude payment method lines, dates, addresses, phone numbers
+- Exclude tax, tip, subtotal, total, discounts, service charges from items
+- Exclude payment method lines, dates, addresses, phone numbers from items
+- taxCents: the tax amount in integer cents, or null if not found
+- tipCents: the tip/gratuity amount in integer cents, or null if not found
 - If no items found, return empty items array`;
 
 interface RawItem {
@@ -28,6 +32,8 @@ interface RawItem {
 interface ClaudeResponse {
   restaurantName: string | null;
   items: RawItem[];
+  taxCents: number | null;
+  tipCents: number | null;
 }
 
 function makeId(): string {
@@ -42,7 +48,7 @@ function parseAndValidate(text: string): ClaudeResponse {
     typeof parsed.restaurantName === "string" ? parsed.restaurantName : null;
 
   if (!Array.isArray(parsed.items)) {
-    return { restaurantName, items: [] };
+    return { restaurantName, items: [], taxCents: null, tipCents: null };
   }
 
   const items: RawItem[] = parsed.items
@@ -62,7 +68,16 @@ function parseAndValidate(text: string): ClaudeResponse {
       priceCents: Math.round(item.priceCents),
     }));
 
-  return { restaurantName, items };
+  const taxCents =
+    typeof parsed.taxCents === "number" && parsed.taxCents >= 0
+      ? Math.round(parsed.taxCents)
+      : null;
+  const tipCents =
+    typeof parsed.tipCents === "number" && parsed.tipCents >= 0
+      ? Math.round(parsed.tipCents)
+      : null;
+
+  return { restaurantName, items, taxCents, tipCents };
 }
 
 export async function POST(request: NextRequest) {
@@ -187,5 +202,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     restaurantName: result.restaurantName,
     items,
+    taxCents: result.taxCents,
+    tipCents: result.tipCents,
   });
 }

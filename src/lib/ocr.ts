@@ -4,6 +4,8 @@ import type { ReceiptItem } from "@/types";
 export interface OcrResult {
   restaurantName: string | null;
   items: ReceiptItem[];
+  taxCents: number | null;
+  tipCents: number | null;
 }
 
 /**
@@ -34,5 +36,7 @@ export async function recognizeImage(image: File | string): Promise<OcrResult> {
   return {
     restaurantName: data.restaurantName ?? null,
     items: Array.isArray(data.items) ? data.items : [],
+    taxCents: typeof data.taxCents === "number" ? data.taxCents : null,
+    tipCents: typeof data.tipCents === "number" ? data.tipCents : null,
   };
 }
