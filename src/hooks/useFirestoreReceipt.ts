@@ -132,27 +132,55 @@ export function useFirestoreReceipt(receiptId: string) {
   const addPerson = useCallback(
     (name: string) => {
       const color = PERSON_COLORS[people.length % PERSON_COLORS.length];
-      fsAddPerson(receiptId, {
+      const person = {
         id: `person-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name,
         color,
-      });
+      };
+      setData(prev => prev ? { ...prev, people: [...prev.people, person] } : prev);
+      fsAddPerson(receiptId, person);
     },
     [receiptId, people.length]
   );
 
   const updatePerson = useCallback(
-    (id: string, name: string) => { fsUpdatePerson(receiptId, id, name); },
+    (id: string, name: string) => {
+      setData(prev => prev ? { ...prev, people: prev.people.map(p => p.id === id ? { ...p, name } : p) } : prev);
+      fsUpdatePerson(receiptId, id, name);
+    },
     [receiptId]
   );
 
   const deletePerson = useCallback(
-    (id: string) => { fsDeletePerson(receiptId, id); },
+    (id: string) => {
+      setData(prev => prev ? {
+        ...prev,
+        people: prev.people.filter(p => p.id !== id),
+        items: prev.items.map(item => ({
+          ...item,
+          assignedTo: item.assignedTo.filter(pid => pid !== id),
+        })),
+      } : prev);
+      fsDeletePerson(receiptId, id);
+    },
     [receiptId]
   );
 
   const toggleAssignment = useCallback(
     (itemId: string, personId: string) => {
+      setData(prev => prev ? {
+        ...prev,
+        items: prev.items.map(item => {
+          if (item.id !== itemId) return item;
+          const has = item.assignedTo.includes(personId);
+          return {
+            ...item,
+            assignedTo: has
+              ? item.assignedTo.filter(pid => pid !== personId)
+              : [...item.assignedTo, personId],
+          };
+        }),
+      } : prev);
       fsToggleAssignment(receiptId, itemId, personId);
     },
     [receiptId]
