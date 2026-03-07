@@ -100,12 +100,12 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                     aria-label={`Select ${person.name}`}
                   >
                     {person.name}
-                    {items.length > 0 && itemCount > 0 && (
-                      <span className="absolute -bottom-1 -right-1 rounded-full bg-paper px-1 font-receipt text-[10px] text-ink-muted">
-                        {itemCount}
-                      </span>
-                    )}
                   </button>
+                  {items.length > 0 && itemCount > 0 && (
+                    <span className="absolute -bottom-1 -right-1 rounded-full bg-paper px-1 font-receipt text-[10px] text-ink-muted">
+                      {itemCount}
+                    </span>
+                  )}
                   {/* Edit/delete on hover */}
                   <div className="absolute -right-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
