@@ -58,37 +58,56 @@ export function useFirestoreReceipt(receiptId: string) {
   const restaurantName = data?.restaurantName ?? null;
 
   const setItems = useCallback(
-    (newItems: ReceiptItem[]) => { fsSetItems(receiptId, newItems); },
+    (newItems: ReceiptItem[]) => {
+      setData(prev => prev ? { ...prev, items: newItems } : prev);
+      fsSetItems(receiptId, newItems);
+    },
     [receiptId]
   );
 
   const addItem = useCallback(
     (name: string, quantity: number, priceCents: number) => {
-      fsAddItem(receiptId, {
+      const item: ReceiptItem = {
         id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name,
         quantity,
         priceCents,
         assignedTo: [],
-      });
+      };
+      setData(prev => prev ? { ...prev, items: [item, ...prev.items] } : prev);
+      fsAddItem(receiptId, item);
     },
     [receiptId]
   );
 
   const updateItem = useCallback(
     (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => {
+      setData(prev => prev ? { ...prev, items: prev.items.map(item => item.id === id ? { ...item, ...updates } : item) } : prev);
       fsUpdateItem(receiptId, id, updates);
     },
     [receiptId]
   );
 
   const deleteItem = useCallback(
-    (id: string) => { fsDeleteItem(receiptId, id); },
+    (id: string) => {
+      setData(prev => prev ? { ...prev, items: prev.items.filter(item => item.id !== id) } : prev);
+      fsDeleteItem(receiptId, id);
+    },
     [receiptId]
   );
 
   const moveItem = useCallback(
     (id: string, direction: "up" | "down") => {
+      setData(prev => {
+        if (!prev) return prev;
+        const items = [...prev.items];
+        const idx = items.findIndex(i => i.id === id);
+        if (idx === -1) return prev;
+        const swap = direction === "up" ? idx - 1 : idx + 1;
+        if (swap < 0 || swap >= items.length) return prev;
+        [items[idx], items[swap]] = [items[swap], items[idx]];
+        return { ...prev, items };
+      });
       fsMoveItem(receiptId, id, direction);
     },
     [receiptId]
@@ -96,6 +115,15 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const reorderItem = useCallback(
     (itemId: string, newIndex: number) => {
+      setData(prev => {
+        if (!prev) return prev;
+        const items = [...prev.items];
+        const oldIndex = items.findIndex(i => i.id === itemId);
+        if (oldIndex === -1) return prev;
+        const [item] = items.splice(oldIndex, 1);
+        items.splice(newIndex, 0, item);
+        return { ...prev, items };
+      });
       fsReorderItem(receiptId, itemId, newIndex);
     },
     [receiptId]
