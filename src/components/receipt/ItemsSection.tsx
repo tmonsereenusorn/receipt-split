@@ -10,6 +10,8 @@ interface ItemsSectionProps {
   people: Person[];
   activePerson: string | null;
   unassignedCount: number;
+  expandedId: string | null;
+  onToggleExpand: (id: string) => void;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
   onToggleAssignment: (itemId: string, personId: string) => void;
@@ -22,13 +24,14 @@ export function ItemsSection({
   people,
   activePerson,
   unassignedCount,
+  expandedId,
+  onToggleExpand,
   onUpdate,
   onDelete,
   onToggleAssignment,
   onAddItem,
   onReorder,
 }: ItemsSectionProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Drag reorder state
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -37,8 +40,8 @@ export function ItemsSection({
 
   const handleDragStart = useCallback((itemId: string) => {
     setDraggingId(itemId);
-    setExpandedId(null);
-  }, []);
+    if (expandedId) onToggleExpand(expandedId);
+  }, [expandedId, onToggleExpand]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -136,9 +139,7 @@ export function ItemsSection({
                 isExpanded={expandedId === item.id}
                 isDragging={draggingId === item.id}
                 onDragStart={handleDragStart}
-                onToggleExpand={() =>
-                  setExpandedId(expandedId === item.id ? null : item.id)
-                }
+                onToggleExpand={() => onToggleExpand(item.id)}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 onToggleAssignment={onToggleAssignment}

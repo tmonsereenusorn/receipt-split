@@ -11,6 +11,8 @@ interface TotalsSectionProps {
   items: ReceiptItem[];
   taxTip: TaxTip;
   onChange?: (updates: Partial<TaxTip>) => void;
+  collapseKey?: number;
+  onRowExpand?: () => void;
 }
 
 const TAX_PRESETS = [5, 7, 8, 10];
@@ -25,6 +27,8 @@ function EditableTaxTipRow({
   onToggleMode,
   onChangePercent,
   onChangeCents,
+  collapseKey,
+  onExpand,
 }: {
   label: string;
   isPercent: boolean;
@@ -34,8 +38,14 @@ function EditableTaxTipRow({
   onToggleMode: (isPercent: boolean) => void;
   onChangePercent: (pct: number) => void;
   onChangeCents: (cents: number) => void;
+  collapseKey?: number;
+  onExpand?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [collapseKey]);
   const [localPercent, setLocalPercent] = useState(String(percent));
   const isPercentFocused = useRef(false);
 
@@ -47,7 +57,11 @@ function EditableTaxTipRow({
     <div>
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          const next = !expanded;
+          setExpanded(next);
+          if (next) onExpand?.();
+        }}
         className="print-muted flex w-full items-baseline font-receipt text-lg text-ink-muted"
       >
         <span className="shrink-0 uppercase">{label}</span>
@@ -137,7 +151,7 @@ function EditableTaxTipRow({
   );
 }
 
-export function TotalsSection({ items, taxTip, onChange }: TotalsSectionProps) {
+export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpand }: TotalsSectionProps) {
   const subtotal = getSubtotalCents(items);
   const tax = getEffectiveTaxCents(taxTip, subtotal);
   const tip = getEffectiveTipCents(taxTip, subtotal);
@@ -165,6 +179,8 @@ export function TotalsSection({ items, taxTip, onChange }: TotalsSectionProps) {
               onToggleMode={(isPercent) => onChange({ taxIsPercent: isPercent })}
               onChangePercent={(pct) => onChange({ taxPercent: pct })}
               onChangeCents={(cents) => onChange({ taxCents: cents })}
+              collapseKey={collapseKey}
+              onExpand={onRowExpand}
             />
             <EditableTaxTipRow
               label="TIP"
@@ -175,6 +191,8 @@ export function TotalsSection({ items, taxTip, onChange }: TotalsSectionProps) {
               onToggleMode={(isPercent) => onChange({ tipIsPercent: isPercent })}
               onChangePercent={(pct) => onChange({ tipPercent: pct })}
               onChangeCents={(cents) => onChange({ tipCents: cents })}
+              collapseKey={collapseKey}
+              onExpand={onRowExpand}
             />
           </>
         ) : (

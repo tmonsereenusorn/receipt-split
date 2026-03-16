@@ -19,6 +19,8 @@ export default function ReceiptPageClient({ id }: { id: string }) {
   const receipt = useFirestoreReceipt(id);
   const { upsert: upsertRecent } = useRecentReceipts();
   const [activePerson, setActivePerson] = useState<string | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [collapseKey, setCollapseKey] = useState(0);
   const resolvedActivePerson = activePerson && receipt.people.some(p => p.id === activePerson)
     ? activePerson : null;
 
@@ -73,8 +75,13 @@ export default function ReceiptPageClient({ id }: { id: string }) {
     (item) => item.assignedTo.length === 0
   ).length;
 
+  function collapseAll() {
+    setExpandedItemId(null);
+    setCollapseKey(k => k + 1);
+  }
+
   return (
-    <ReceiptTape>
+    <ReceiptTape onClick={collapseAll}>
       <div className="no-print px-3 pt-3">
         <Link
           href="/"
@@ -89,7 +96,11 @@ export default function ReceiptPageClient({ id }: { id: string }) {
           people={receipt.people}
           items={receipt.items}
           activePerson={resolvedActivePerson}
-          onSelectPerson={setActivePerson}
+          onSelectPerson={(id) => {
+            setActivePerson(id);
+            setExpandedItemId(null);
+            setCollapseKey(k => k + 1);
+          }}
           onAdd={receipt.addPerson}
           onUpdate={receipt.updatePerson}
           onDelete={(id) => {
@@ -99,12 +110,18 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       </ReceiptHeader>
 
       {hasItems && (
-        <div className="no-print">
+        <div className="no-print" onClick={e => e.stopPropagation()}>
           <ItemsSection
             items={receipt.items}
             people={receipt.people}
             activePerson={resolvedActivePerson}
             unassignedCount={unassignedCount}
+            expandedId={expandedItemId}
+            onToggleExpand={(id) => {
+              const next = expandedItemId === id ? null : id;
+              setExpandedItemId(next);
+              if (next) setCollapseKey(k => k + 1);
+            }}
             onUpdate={receipt.updateItem}
             onDelete={receipt.deleteItem}
             onToggleAssignment={receipt.toggleAssignment}
@@ -115,7 +132,15 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       )}
 
       {hasItems && (
-        <TotalsSection items={receipt.items} taxTip={receipt.taxTip} onChange={receipt.setTaxTip} />
+        <div onClick={e => e.stopPropagation()}>
+          <TotalsSection
+            items={receipt.items}
+            taxTip={receipt.taxTip}
+            onChange={receipt.setTaxTip}
+            collapseKey={collapseKey}
+            onRowExpand={() => setExpandedItemId(null)}
+          />
+        </div>
       )}
 
       {hasPeople && (

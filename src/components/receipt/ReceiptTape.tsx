@@ -1,6 +1,6 @@
-export function ReceiptTape({ children }: { children: React.ReactNode }) {
+export function ReceiptTape({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
-    <div className="receipt-tape relative mx-auto w-full">
+    <div className="receipt-tape relative mx-auto w-full" onClick={onClick}>
       {/* Top torn edge */}
       <div
         className="torn-edge h-4 w-full bg-paper"
