@@ -75,8 +75,13 @@ export default function ReceiptPageClient({ id }: { id: string }) {
     (item) => item.assignedTo.length === 0
   ).length;
 
+  function collapseAll() {
+    setExpandedItemId(null);
+    setCollapseKey(k => k + 1);
+  }
+
   return (
-    <ReceiptTape>
+    <ReceiptTape onClick={collapseAll}>
       <div className="no-print px-3 pt-3">
         <Link
           href="/"
@@ -105,7 +110,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       </ReceiptHeader>
 
       {hasItems && (
-        <div className="no-print">
+        <div className="no-print" onClick={e => e.stopPropagation()}>
           <ItemsSection
             items={receipt.items}
             people={receipt.people}
@@ -127,13 +132,15 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       )}
 
       {hasItems && (
-        <TotalsSection
-          items={receipt.items}
-          taxTip={receipt.taxTip}
-          onChange={receipt.setTaxTip}
-          collapseKey={collapseKey}
-          onRowExpand={() => setExpandedItemId(null)}
-        />
+        <div onClick={e => e.stopPropagation()}>
+          <TotalsSection
+            items={receipt.items}
+            taxTip={receipt.taxTip}
+            onChange={receipt.setTaxTip}
+            collapseKey={collapseKey}
+            onRowExpand={() => setExpandedItemId(null)}
+          />
+        </div>
       )}
 
       {hasPeople && (
