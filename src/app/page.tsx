@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceipt } from "@/lib/firestore";
 import { initialTaxTip } from "@/types";
+import { defaultCurrencyFromLocale } from "@/lib/currency";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
@@ -23,6 +24,7 @@ export default function LandingPage() {
         items: result.items,
         restaurantName: result.restaurantName,
         ocrText: result.ocrText,
+        currency: result.currency,
         ...(result.taxTip && { taxTip: { ...initialTaxTip, ...result.taxTip } }),
       });
       router.push(`/receipt/${id}`);
@@ -37,6 +39,7 @@ export default function LandingPage() {
     setError(null);
     try {
       const id = await createReceipt({
+        currency: defaultCurrencyFromLocale(navigator.language),
         items: [
           {
             id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

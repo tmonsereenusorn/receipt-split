@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ReceiptItem, Person } from "@/types";
-import { formatCents } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/currency";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 
 interface ItemRowProps {
@@ -11,6 +11,7 @@ interface ItemRowProps {
   activePerson: string | null;
   isExpanded: boolean;
   isDragging?: boolean;
+  currency: string;
   onToggleExpand: () => void;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
@@ -24,6 +25,7 @@ export function ItemRow({
   activePerson,
   isExpanded,
   isDragging,
+  currency,
   onToggleExpand,
   onUpdate,
   onDelete,
@@ -223,7 +225,7 @@ export function ItemRow({
                 {"·".repeat(50)}
               </span>
               {/* Price */}
-              <span className="shrink-0">{formatCents(total)}</span>
+              <span className="shrink-0">{formatMoney(total, currency)}</span>
               <span className="ml-1 shrink-0 text-ink-faded" onClick={onToggleExpand}>&#x25BE;</span>
             </div>
           ) : (
@@ -252,7 +254,7 @@ export function ItemRow({
                 {"·".repeat(50)}
               </span>
               {/* Price */}
-              <span className="shrink-0">{formatCents(total)}</span>
+              <span className="shrink-0">{formatMoney(total, currency)}</span>
 
               {/* SVG strikethrough overlay */}
               {isStruck && (
@@ -322,7 +324,7 @@ export function ItemRow({
             </div>
             {/* Price input */}
             <div className="flex items-center gap-1">
-              <span className="font-receipt text-sm text-ink-muted">$</span>
+              <span className="font-receipt text-sm text-ink-muted">{currencySymbol(currency)}</span>
               <CurrencyInput
                 cents={item.priceCents}
                 onChangeCents={(cents) =>

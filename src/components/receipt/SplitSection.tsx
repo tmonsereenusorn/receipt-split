@@ -1,15 +1,16 @@
 "use client";
 
 import { PersonBreakdown } from "@/types";
-import { formatCents } from "@/lib/format";
+import { formatMoney } from "@/lib/currency";
 import { Section } from "./Section";
 
 interface SplitSectionProps {
   breakdowns: PersonBreakdown[];
   allAssigned?: boolean;
+  currency: string;
 }
 
-export function SplitSection({ breakdowns, allAssigned }: SplitSectionProps) {
+export function SplitSection({ breakdowns, allAssigned, currency }: SplitSectionProps) {
   if (breakdowns.length === 0 || breakdowns.every((b) => b.totalCents === 0)) {
     return null;
   }
@@ -27,7 +28,7 @@ export function SplitSection({ breakdowns, allAssigned }: SplitSectionProps) {
       <div className="space-y-3">
         {breakdowns.map((breakdown, i) => (
           <div key={breakdown.person.id}>
-            <PersonSplit breakdown={breakdown} />
+            <PersonSplit breakdown={breakdown} currency={currency} />
             {i < breakdowns.length - 1 && (
               <div className="receipt-separator mt-3 text-center text-sm" aria-hidden="true">
                 - - - - - - - - - -
@@ -40,7 +41,7 @@ export function SplitSection({ breakdowns, allAssigned }: SplitSectionProps) {
   );
 }
 
-function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
+function PersonSplit({ breakdown, currency }: { breakdown: PersonBreakdown; currency: string }) {
   const { person, items, subtotalCents, taxShareCents, tipShareCents, totalCents } = breakdown;
 
   if (totalCents === 0) return null;
@@ -53,7 +54,7 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
           <span className="font-hand text-lg font-bold" style={{ color: person.color }}>{person.name}</span>
         </div>
         <span className="font-receipt text-lg font-bold text-ink">
-          {formatCents(totalCents)}
+          {formatMoney(totalCents, currency)}
         </span>
       </div>
 
@@ -68,21 +69,21 @@ function PersonSplit({ breakdown }: { breakdown: PersonBreakdown }) {
               )}
             </span>
             <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-            <span className="shrink-0 ml-2">{formatCents(shareCents)}</span>
+            <span className="shrink-0 ml-2">{formatMoney(shareCents, currency)}</span>
           </div>
         ))}
         {taxShareCents > 0 && (
           <div className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
             <span className="shrink-0">tax</span>
             <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-            <span className="shrink-0">{formatCents(taxShareCents)}</span>
+            <span className="shrink-0">{formatMoney(taxShareCents, currency)}</span>
           </div>
         )}
         {tipShareCents > 0 && (
           <div className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
             <span className="shrink-0">tip</span>
             <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-            <span className="shrink-0">{formatCents(tipShareCents)}</span>
+            <span className="shrink-0">{formatMoney(tipShareCents, currency)}</span>
           </div>
         )}
       </div>

@@ -11,6 +11,7 @@ interface ItemsSectionProps {
   activePerson: string | null;
   unassignedCount: number;
   expandedId: string | null;
+  currency: string;
   onToggleExpand: (id: string) => void;
   onUpdate: (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => void;
   onDelete: (id: string) => void;
@@ -25,6 +26,7 @@ export function ItemsSection({
   activePerson,
   unassignedCount,
   expandedId,
+  currency,
   onToggleExpand,
   onUpdate,
   onDelete,
@@ -138,6 +140,7 @@ export function ItemsSection({
                 activePerson={activePerson}
                 isExpanded={expandedId === item.id}
                 isDragging={draggingId === item.id}
+                currency={currency}
                 onDragStart={handleDragStart}
                 onToggleExpand={() => onToggleExpand(item.id)}
                 onUpdate={onUpdate}

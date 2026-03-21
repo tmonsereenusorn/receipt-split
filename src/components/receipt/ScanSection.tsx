@@ -6,7 +6,7 @@ import { ImageCapture } from "@/components/scan/ImageCapture";
 import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
-import { formatCents } from "@/lib/format";
+import { formatMoney } from "@/lib/currency";
 import type { ReceiptItem, TaxTip } from "@/types";
 
 export interface ScanResult {
@@ -15,6 +15,7 @@ export interface ScanResult {
   ocrText: string | null;
   imageDataUrl: string;
   taxTip: Partial<TaxTip> | null;
+  currency: string;
 }
 
 interface ScanSectionProps {
@@ -44,6 +45,7 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
         ocrText: null,
         imageDataUrl: dataUrl,
         taxTip,
+        currency: result.currency,
       });
     }
   }
@@ -81,7 +83,7 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
               className="flex justify-between font-receipt text-base text-ink"
             >
               <span className="truncate">{item.name}</span>
-              <span className="ml-2 text-ink">{formatCents(item.priceCents)}</span>
+              <span className="ml-2 text-ink">{formatMoney(item.priceCents, ocr.result?.currency ?? "USD")}</span>
             </div>
           ))}
         </div>

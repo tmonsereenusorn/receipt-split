@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ReceiptItem, TaxTip } from "@/types";
-import { formatCents } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/currency";
 import { getSubtotalCents, getEffectiveTaxCents, getEffectiveTipCents } from "@/lib/calculator";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Section } from "./Section";
@@ -10,6 +10,7 @@ import { Section } from "./Section";
 interface TotalsSectionProps {
   items: ReceiptItem[];
   taxTip: TaxTip;
+  currency: string;
   onChange?: (updates: Partial<TaxTip>) => void;
   collapseKey?: number;
   onRowExpand?: () => void;
@@ -24,6 +25,7 @@ function EditableTaxTipRow({
   percent,
   cents,
   presets,
+  currency,
   onToggleMode,
   onChangePercent,
   onChangeCents,
@@ -35,6 +37,7 @@ function EditableTaxTipRow({
   percent: number;
   cents: number;
   presets: number[];
+  currency: string;
   onToggleMode: (isPercent: boolean) => void;
   onChangePercent: (pct: number) => void;
   onChangeCents: (cents: number) => void;
@@ -69,7 +72,7 @@ function EditableTaxTipRow({
           {"·".repeat(50)}
         </span>
         {isPercent && <span className="shrink-0 text-ink-muted">{percent}%</span>}
-        <span className={`shrink-0 ${isPercent ? "ml-2" : ""}`}>{formatCents(cents)}</span>
+        <span className={`shrink-0 ${isPercent ? "ml-2" : ""}`}>{formatMoney(cents, currency)}</span>
       </button>
 
       {expanded && (
@@ -92,7 +95,7 @@ function EditableTaxTipRow({
                 !isPercent ? "font-bold text-ink" : "text-ink-faded"
               }`}
             >
-              $
+              {currencySymbol(currency)}
             </button>
           </div>
 
@@ -137,7 +140,7 @@ function EditableTaxTipRow({
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="font-receipt text-sm text-ink-faded">$</span>
+              <span className="font-receipt text-sm text-ink-faded">{currencySymbol(currency)}</span>
               <CurrencyInput
                 cents={cents}
                 onChangeCents={onChangeCents}
@@ -151,7 +154,7 @@ function EditableTaxTipRow({
   );
 }
 
-export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpand }: TotalsSectionProps) {
+export function TotalsSection({ items, taxTip, currency, onChange, collapseKey, onRowExpand }: TotalsSectionProps) {
   const subtotal = getSubtotalCents(items);
   const tax = getEffectiveTaxCents(taxTip, subtotal);
   const tip = getEffectiveTipCents(taxTip, subtotal);
@@ -165,7 +168,7 @@ export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpan
         <div className="print-muted flex items-baseline text-ink-muted">
           <span className="shrink-0 uppercase">SUBTOTAL</span>
           <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-          <span className="shrink-0">{formatCents(subtotal)}</span>
+          <span className="shrink-0">{formatMoney(subtotal, currency)}</span>
         </div>
 
         {onChange ? (
@@ -176,6 +179,7 @@ export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpan
               percent={taxTip.taxPercent}
               cents={tax}
               presets={TAX_PRESETS}
+              currency={currency}
               onToggleMode={(isPercent) => onChange({ taxIsPercent: isPercent })}
               onChangePercent={(pct) => onChange({ taxPercent: pct })}
               onChangeCents={(cents) => onChange({ taxCents: cents })}
@@ -188,6 +192,7 @@ export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpan
               percent={taxTip.tipPercent}
               cents={tip}
               presets={TIP_PRESETS}
+              currency={currency}
               onToggleMode={(isPercent) => onChange({ tipIsPercent: isPercent })}
               onChangePercent={(pct) => onChange({ tipPercent: pct })}
               onChangeCents={(cents) => onChange({ tipCents: cents })}
@@ -202,14 +207,14 @@ export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpan
                 TAX{taxTip.taxIsPercent ? ` (${taxTip.taxPercent}%)` : ""}
               </span>
               <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-              <span className="shrink-0">{formatCents(tax)}</span>
+              <span className="shrink-0">{formatMoney(tax, currency)}</span>
             </div>
             <div className="print-muted flex items-baseline text-ink-muted">
               <span className="shrink-0 uppercase">
                 TIP{taxTip.tipIsPercent ? ` (${taxTip.tipPercent}%)` : ""}
               </span>
               <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-              <span className="shrink-0">{formatCents(tip)}</span>
+              <span className="shrink-0">{formatMoney(tip, currency)}</span>
             </div>
           </>
         )}
@@ -217,7 +222,7 @@ export function TotalsSection({ items, taxTip, onChange, collapseKey, onRowExpan
         <div className="flex items-baseline text-xl font-bold text-ink pt-1">
           <span className="shrink-0">TOTAL</span>
           <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-          <span className="shrink-0">{formatCents(total)}</span>
+          <span className="shrink-0">{formatMoney(total, currency)}</span>
         </div>
       </div>
     </Section>

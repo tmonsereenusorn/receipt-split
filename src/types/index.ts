@@ -39,6 +39,7 @@ export const initialTaxTip: TaxTip = {
 
 export interface ReceiptDoc {
   restaurantName: string | null;
+  currency: string;
   items: ReceiptItem[];
   people: Person[];
   taxTip: TaxTip;
