@@ -41,6 +41,7 @@ export async function createReceipt(
 ): Promise<string> {
   const data: ReceiptDoc = {
     restaurantName: partial.restaurantName ?? null,
+    currency: partial.currency ?? "USD",
     items: partial.items ?? [],
     people: partial.people ?? [],
     taxTip: partial.taxTip ?? initialTaxTip,
@@ -237,6 +238,11 @@ export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
     const data = requireData(snap);
     tx.update(ref, { taxTip: { ...data.taxTip, ...taxTip } });
   });
+}
+
+/** Set currency */
+export async function fsSetCurrency(id: string, currency: string) {
+  await updateDoc(receiptRef(id), { currency });
 }
 
 /** Set restaurant name */

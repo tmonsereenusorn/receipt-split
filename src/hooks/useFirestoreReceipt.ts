@@ -21,6 +21,7 @@ import {
   fsToggleAssignment,
   fsSetTaxTip,
   fsSetRestaurantName,
+  fsSetCurrency,
   fsSetOcrText,
 } from "@/lib/firestore";
 
@@ -56,6 +57,7 @@ export function useFirestoreReceipt(receiptId: string) {
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
+  const currency = data?.currency ?? "USD";
 
   const setItems = useCallback(
     (newItems: ReceiptItem[]) => {
@@ -194,6 +196,14 @@ export function useFirestoreReceipt(receiptId: string) {
     [receiptId]
   );
 
+  const setCurrency = useCallback(
+    (currency: string) => {
+      setData(prev => prev ? { ...prev, currency } : prev);
+      fsSetCurrency(receiptId, currency);
+    },
+    [receiptId]
+  );
+
   const setRestaurantName = useCallback(
     (name: string | null) => {
       setData(prev => prev ? { ...prev, restaurantName: name } : prev);
@@ -217,6 +227,7 @@ export function useFirestoreReceipt(receiptId: string) {
     imageDataUrl,
     ocrText,
     restaurantName,
+    currency,
     loading,
     error,
     setItems,
@@ -230,6 +241,7 @@ export function useFirestoreReceipt(receiptId: string) {
     deletePerson,
     toggleAssignment,
     setTaxTip,
+    setCurrency,
     setRestaurantName,
     setOcrText,
   };
