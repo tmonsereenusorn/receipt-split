@@ -2,13 +2,20 @@
 
 import { useState, useEffect, useRef } from "react";
 
+const COMMON_CURRENCIES = [
+  "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY",
+  "KRW", "INR", "MXN", "BRL", "SGD", "HKD", "TWD",
+];
+
 interface ReceiptHeaderProps {
   restaurantName?: string | null;
   onChangeName?: (name: string) => void;
+  currency?: string;
+  onChangeCurrency?: (currency: string) => void;
   children?: React.ReactNode;
 }
 
-export function ReceiptHeader({ restaurantName, onChangeName, children }: ReceiptHeaderProps) {
+export function ReceiptHeader({ restaurantName, onChangeName, currency, onChangeCurrency, children }: ReceiptHeaderProps) {
   const [timestamp] = useState(() => {
     const now = new Date();
     return `${now.toLocaleDateString("en-US", {
@@ -62,6 +69,25 @@ export function ReceiptHeader({ restaurantName, onChangeName, children }: Receip
       <p className="print-muted mt-1 font-receipt text-base text-ink-muted">
         {timestamp}
       </p>
+      {onChangeCurrency && (() => {
+        const options = currency && !COMMON_CURRENCIES.includes(currency)
+          ? [currency, ...COMMON_CURRENCIES]
+          : COMMON_CURRENCIES;
+        return (
+          <div className="no-print mt-1">
+            <select
+              value={currency}
+              onChange={(e) => onChangeCurrency(e.target.value)}
+              aria-label="Currency"
+              className="bg-transparent font-receipt text-sm text-ink-muted focus:outline-none cursor-pointer"
+            >
+              {options.map((code) => (
+                <option key={code} value={code}>{code}</option>
+              ))}
+            </select>
+          </div>
+        );
+      })()}
       {children}
       <div className="print-decorative receipt-separator mt-2 text-sm select-none" aria-hidden="true">
         ================================

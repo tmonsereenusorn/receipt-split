@@ -91,7 +91,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
         </Link>
       </div>
 
-      <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName}>
+      <ReceiptHeader restaurantName={receipt.restaurantName} onChangeName={receipt.setRestaurantName} currency={receipt.currency} onChangeCurrency={receipt.setCurrency}>
         <PeopleBar
           people={receipt.people}
           items={receipt.items}
