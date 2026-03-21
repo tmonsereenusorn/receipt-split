@@ -63,12 +63,12 @@ export default function ReceiptPageClient({ id }: { id: string }) {
 
   const shareText =
     breakdowns.length > 0
-      ? generateShareText(receipt.items, receipt.taxTip, breakdowns)
+      ? generateShareText(receipt.items, receipt.taxTip, breakdowns, receipt.currency)
       : "";
 
   const csvText =
     breakdowns.length > 0
-      ? generateCsv(receipt.items, receipt.taxTip, breakdowns)
+      ? generateCsv(receipt.items, receipt.taxTip, breakdowns, receipt.currency)
       : "";
 
   const unassignedCount = receipt.items.filter(
@@ -117,6 +117,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
             activePerson={resolvedActivePerson}
             unassignedCount={unassignedCount}
             expandedId={expandedItemId}
+            currency={receipt.currency}
             onToggleExpand={(id) => {
               const next = expandedItemId === id ? null : id;
               setExpandedItemId(next);
@@ -136,6 +137,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
           <TotalsSection
             items={receipt.items}
             taxTip={receipt.taxTip}
+            currency={receipt.currency}
             onChange={receipt.setTaxTip}
             collapseKey={collapseKey}
             onRowExpand={() => setExpandedItemId(null)}
@@ -144,7 +146,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       )}
 
       {hasPeople && (
-        <SplitSection breakdowns={breakdowns} allAssigned={allAssigned} />
+        <SplitSection breakdowns={breakdowns} allAssigned={allAssigned} currency={receipt.currency} />
       )}
 
       <ShareSection
@@ -153,7 +155,7 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       />
 
       {hasItems && (
-        <PrintItemsList items={receipt.items} />
+        <PrintItemsList items={receipt.items} currency={receipt.currency} />
       )}
     </ReceiptTape>
   );

@@ -1,12 +1,13 @@
 import { ReceiptItem } from "@/types";
-import { formatCents } from "@/lib/format";
+import { formatMoney } from "@/lib/currency";
 import { getSubtotalCents } from "@/lib/calculator";
 
 interface PrintItemsListProps {
   items: ReceiptItem[];
+  currency: string;
 }
 
-export function PrintItemsList({ items }: PrintItemsListProps) {
+export function PrintItemsList({ items, currency }: PrintItemsListProps) {
   if (items.length === 0) return null;
 
   const subtotal = getSubtotalCents(items);
@@ -25,7 +26,7 @@ export function PrintItemsList({ items }: PrintItemsListProps) {
                 {item.quantity}×
               </span>
               <span className="min-w-0 flex-1 truncate text-ink">{item.name}</span>
-              <span className="shrink-0 text-ink">{formatCents(total)}</span>
+              <span className="shrink-0 text-ink">{formatMoney(total, currency)}</span>
             </div>
           );
         })}
@@ -35,7 +36,7 @@ export function PrintItemsList({ items }: PrintItemsListProps) {
       </div>
       <div className="mt-1 flex justify-between font-receipt text-base font-bold text-ink">
         <span>SUBTOTAL</span>
-        <span>{formatCents(subtotal)}</span>
+        <span>{formatMoney(subtotal, currency)}</span>
       </div>
     </div>
   );

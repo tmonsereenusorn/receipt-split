@@ -6,7 +6,7 @@ import { ImageCapture } from "@/components/scan/ImageCapture";
 import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
-import { formatCents } from "@/lib/format";
+import { formatMoney } from "@/lib/currency";
 import type { ReceiptItem, TaxTip } from "@/types";
 
 export interface ScanResult {
@@ -81,7 +81,7 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
               className="flex justify-between font-receipt text-base text-ink"
             >
               <span className="truncate">{item.name}</span>
-              <span className="ml-2 text-ink">{formatCents(item.priceCents)}</span>
+              <span className="ml-2 text-ink">{formatMoney(item.priceCents, "USD")}</span>
             </div>
           ))}
         </div>

@@ -1,19 +1,6 @@
 import { PersonBreakdown, ReceiptItem, TaxTip } from "@/types";
 import { getEffectiveTaxCents, getEffectiveTipCents, getSubtotalCents } from "./calculator";
-
-/**
- * Format cents as a dollar string, e.g. 1299 → "$12.99"
- */
-export function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
-/**
- * Format cents as a raw number string without $, e.g. 1299 → "12.99"
- */
-export function formatCentsRaw(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
+import { formatMoney, formatMoneyRaw } from "./currency";
 
 /**
  * Generate a shareable text summary of the receipt split.
@@ -21,7 +8,8 @@ export function formatCentsRaw(cents: number): string {
 export function generateShareText(
   items: ReceiptItem[],
   taxTip: TaxTip,
-  breakdowns: PersonBreakdown[]
+  breakdowns: PersonBreakdown[],
+  currency: string
 ): string {
   const subtotal = getSubtotalCents(items);
   const taxCents = getEffectiveTaxCents(taxTip, subtotal);
@@ -31,27 +19,27 @@ export function generateShareText(
   const lines: string[] = [
     "Shplit",
     "─".repeat(30),
-    `Subtotal: ${formatCents(subtotal)}`,
-    `Tax: ${formatCents(taxCents)}`,
-    `Tip: ${formatCents(tipCents)}`,
-    `Total: ${formatCents(grandTotal)}`,
+    `Subtotal: ${formatMoney(subtotal, currency)}`,
+    `Tax: ${formatMoney(taxCents, currency)}`,
+    `Tip: ${formatMoney(tipCents, currency)}`,
+    `Total: ${formatMoney(grandTotal, currency)}`,
     "",
     "Per Person:",
     "─".repeat(30),
   ];
 
   for (const b of breakdowns) {
-    lines.push(`${b.person.name}: ${formatCents(b.totalCents)}`);
+    lines.push(`${b.person.name}: ${formatMoney(b.totalCents, currency)}`);
     for (const pi of b.items) {
       const splitNote =
         pi.splitCount > 1 ? ` (1/${pi.splitCount})` : "";
-      lines.push(`  • ${pi.item.name}${splitNote}: ${formatCents(pi.shareCents)}`);
+      lines.push(`  • ${pi.item.name}${splitNote}: ${formatMoney(pi.shareCents, currency)}`);
     }
     if (b.taxShareCents > 0) {
-      lines.push(`  • Tax: ${formatCents(b.taxShareCents)}`);
+      lines.push(`  • Tax: ${formatMoney(b.taxShareCents, currency)}`);
     }
     if (b.tipShareCents > 0) {
-      lines.push(`  • Tip: ${formatCents(b.tipShareCents)}`);
+      lines.push(`  • Tip: ${formatMoney(b.tipShareCents, currency)}`);
     }
     lines.push("");
   }
@@ -65,7 +53,8 @@ export function generateShareText(
 export function generateCsv(
   items: ReceiptItem[],
   taxTip: TaxTip,
-  breakdowns: PersonBreakdown[]
+  breakdowns: PersonBreakdown[],
+  currency: string
 ): string {
   const subtotal = getSubtotalCents(items);
   const taxCents = getEffectiveTaxCents(taxTip, subtotal);
@@ -82,25 +71,25 @@ export function generateCsv(
     const row = [
       `"${item.name.replace(/"/g, '""')}"`,
       String(item.quantity),
-      formatCentsRaw(item.priceCents),
-      formatCentsRaw(item.quantity * item.priceCents),
+      formatMoneyRaw(item.priceCents, currency),
+      formatMoneyRaw(item.quantity * item.priceCents, currency),
     ];
     for (const b of breakdowns) {
       const pi = b.items.find((i) => i.item.id === item.id);
-      row.push(pi ? formatCentsRaw(pi.shareCents) : "");
+      row.push(pi ? formatMoneyRaw(pi.shareCents, currency) : "");
     }
     rows.push(row);
   }
 
   // Subtotal row
-  rows.push(["Subtotal", "", "", formatCentsRaw(subtotal), ...breakdowns.map((b) => formatCentsRaw(b.subtotalCents))]);
+  rows.push(["Subtotal", "", "", formatMoneyRaw(subtotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.subtotalCents, currency))]);
   // Tax row
-  rows.push(["Tax", "", "", formatCentsRaw(taxCents), ...breakdowns.map((b) => formatCentsRaw(b.taxShareCents))]);
+  rows.push(["Tax", "", "", formatMoneyRaw(taxCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.taxShareCents, currency))]);
   // Tip row
-  rows.push(["Tip", "", "", formatCentsRaw(tipCents), ...breakdowns.map((b) => formatCentsRaw(b.tipShareCents))]);
+  rows.push(["Tip", "", "", formatMoneyRaw(tipCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.tipShareCents, currency))]);
   // Total row
   const grandTotal = subtotal + taxCents + tipCents;
-  rows.push(["Total", "", "", formatCentsRaw(grandTotal), ...breakdowns.map((b) => formatCentsRaw(b.totalCents))]);
+  rows.push(["Total", "", "", formatMoneyRaw(grandTotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.totalCents, currency))]);
 
   return rows.map((r) => r.join(",")).join("\n");
 }
