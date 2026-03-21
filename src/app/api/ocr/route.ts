@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
 
-const EXTRACTION_PROMPT = `Extract line items, tax, and tip from this receipt image. Return JSON only, no markdown.
+const EXTRACTION_PROMPT = `Extract line items, tax, tip, and currency from this receipt image. Return JSON only, no markdown.
 
 {
   "restaurantName": "string or null",
@@ -11,7 +11,8 @@ const EXTRACTION_PROMPT = `Extract line items, tax, and tip from this receipt im
     { "name": "string", "quantity": number, "priceCents": number }
   ],
   "taxCents": number or null,
-  "tipCents": number or null
+  "tipCents": number or null,
+  "currency": "ISO 4217 code, e.g. USD, EUR, JPY"
 }
 
 Rules:
@@ -21,6 +22,7 @@ Rules:
 - Exclude payment method lines, dates, addresses, phone numbers from items
 - taxCents: the tax amount in integer cents, or null if not found
 - tipCents: the tip/gratuity amount in integer cents, or null if not found
+- currency: the ISO 4217 currency code detected from the receipt (look for currency symbols like $, €, ¥, £, or text). Default to "USD" if unclear.
 - If no items found, return empty items array`;
 
 interface RawItem {
@@ -34,6 +36,7 @@ interface ClaudeResponse {
   items: RawItem[];
   taxCents: number | null;
   tipCents: number | null;
+  currency: string;
 }
 
 function makeId(): string {
@@ -47,8 +50,13 @@ function parseAndValidate(text: string): ClaudeResponse {
   const restaurantName =
     typeof parsed.restaurantName === "string" ? parsed.restaurantName : null;
 
+  const currency =
+    typeof parsed.currency === "string" && parsed.currency.length === 3
+      ? parsed.currency.toUpperCase()
+      : "USD";
+
   if (!Array.isArray(parsed.items)) {
-    return { restaurantName, items: [], taxCents: null, tipCents: null };
+    return { restaurantName, items: [], taxCents: null, tipCents: null, currency };
   }
 
   const items: RawItem[] = parsed.items
@@ -77,7 +85,7 @@ function parseAndValidate(text: string): ClaudeResponse {
       ? Math.round(parsed.tipCents)
       : null;
 
-  return { restaurantName, items, taxCents, tipCents };
+  return { restaurantName, items, taxCents, tipCents, currency };
 }
 
 export async function POST(request: NextRequest) {
@@ -204,5 +212,6 @@ export async function POST(request: NextRequest) {
     items,
     taxCents: result.taxCents,
     tipCents: result.tipCents,
+    currency: result.currency,
   });
 }
