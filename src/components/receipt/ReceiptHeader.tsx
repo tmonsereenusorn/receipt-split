@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 
 const COMMON_CURRENCIES = [
-  "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY",
-  "KRW", "INR", "MXN", "BRL", "SGD", "HKD", "TWD",
+  "USD", "THB", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF",
+  "CNY", "KRW", "INR", "MXN", "BRL", "SGD", "HKD", "TWD",
 ];
 
 interface ReceiptHeaderProps {
