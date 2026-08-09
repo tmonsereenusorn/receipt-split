@@ -26,6 +26,12 @@ export interface TaxTip {
   tipIsPercent: boolean;
   /** Tip percentage (used when tipIsPercent is true) */
   tipPercent: number;
+  /** Service charge amount in cents */
+  serviceCents: number;
+  /** Whether the service charge is expressed as a percentage */
+  serviceIsPercent: boolean;
+  /** Service charge percentage (used when serviceIsPercent is true) */
+  servicePercent: number;
 }
 
 export const initialTaxTip: TaxTip = {
@@ -35,6 +41,12 @@ export const initialTaxTip: TaxTip = {
   tipCents: 0,
   tipIsPercent: true,
   tipPercent: 20,
+  // Default off, unlike tax and tip: most receipts carry no service charge, and
+  // a detected one arrives as a fixed amount. The 18 is only the starting value
+  // if a user switches this row to percent mode by hand.
+  serviceCents: 0,
+  serviceIsPercent: false,
+  servicePercent: 18,
 };
 
 export interface ReceiptDoc {
@@ -53,6 +65,7 @@ export interface PersonBreakdown {
   items: { item: ReceiptItem; shareCents: number; splitCount: number }[];
   subtotalCents: number;
   taxShareCents: number;
+  serviceShareCents: number;
   tipShareCents: number;
   totalCents: number;
 }

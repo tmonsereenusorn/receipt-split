@@ -4,6 +4,7 @@ import {
   getSubtotalCents,
   getEffectiveTaxCents,
   getEffectiveTipCents,
+  getEffectiveServiceCents,
 } from "../calculator";
 import { ReceiptItem, Person, TaxTip } from "@/types";
 
@@ -27,6 +28,9 @@ const defaultTaxTip: TaxTip = {
   tipCents: 0,
   tipIsPercent: false,
   tipPercent: 0,
+  serviceCents: 0,
+  serviceIsPercent: false,
+  servicePercent: 0,
 };
 
 describe("getSubtotalCents", () => {
@@ -172,6 +176,9 @@ describe("calculateBreakdowns", () => {
       tipCents: 500,
       tipIsPercent: false,
       tipPercent: 0,
+      serviceCents: 0,
+      serviceIsPercent: false,
+      servicePercent: 0,
     };
 
     const breakdowns = calculateBreakdowns(items, people, taxTip);
@@ -229,5 +236,93 @@ describe("calculateBreakdowns", () => {
 
     expect(breakdowns[0].subtotalCents).toBe(0);
     expect(breakdowns[0].items).toHaveLength(0);
+  });
+});
+
+describe("getEffectiveServiceCents", () => {
+  it("returns the fixed amount when not in percent mode", () => {
+    const taxTip = { ...defaultTaxTip, serviceCents: 2567 };
+    expect(getEffectiveServiceCents(taxTip, 14260)).toBe(2567);
+  });
+
+  it("computes from the subtotal when in percent mode", () => {
+    const taxTip = { ...defaultTaxTip, serviceIsPercent: true, servicePercent: 18 };
+    // 14260 * 0.18 = 2566.8, rounds to 2567
+    expect(getEffectiveServiceCents(taxTip, 14260)).toBe(2567);
+  });
+
+  it("treats a legacy taxTip with no service keys as zero", () => {
+    // Receipts created before this feature have a taxTip map without the three
+    // service keys. Reading them must not yield NaN.
+    const legacy = {
+      taxCents: 0,
+      taxIsPercent: false,
+      taxPercent: 0,
+      tipCents: 0,
+      tipIsPercent: false,
+      tipPercent: 0,
+    } as unknown as TaxTip;
+    expect(getEffectiveServiceCents(legacy, 14260)).toBe(0);
+  });
+});
+
+describe("calculateBreakdowns with a service charge", () => {
+  it("distributes the service charge proportionally to subtotals", () => {
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const taxTip = { ...defaultTaxTip, serviceCents: 1000 };
+
+    const [b1, b2] = calculateBreakdowns(items, people, taxTip);
+
+    expect(b1.serviceShareCents).toBe(600);
+    expect(b2.serviceShareCents).toBe(400);
+  });
+
+  it("includes the service share in each person's total", () => {
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const taxTip = { ...defaultTaxTip, serviceCents: 1000 };
+
+    const [b1, b2] = calculateBreakdowns(items, people, taxTip);
+
+    expect(b1.totalCents).toBe(6600);
+    expect(b2.totalCents).toBe(4400);
+  });
+
+  it("gives the remainder to the last person so shares sum exactly", () => {
+    const items = [
+      makeItem("a", 3333, ["p1"]),
+      makeItem("b", 3333, ["p2"]),
+      makeItem("c", 3334, ["p3"]),
+    ];
+    const people = [makePerson("p1"), makePerson("p2"), makePerson("p3")];
+    const taxTip = { ...defaultTaxTip, serviceCents: 1000 };
+
+    const breakdowns = calculateBreakdowns(items, people, taxTip);
+    const summed = breakdowns.reduce((s, b) => s + b.serviceShareCents, 0);
+
+    expect(summed).toBe(1000);
+  });
+
+  it("computes a percent service charge from the assigned subtotal", () => {
+    const items = [makeItem("a", 10000, ["p1"])];
+    const people = [makePerson("p1")];
+    const taxTip = { ...defaultTaxTip, serviceIsPercent: true, servicePercent: 18 };
+
+    const [b] = calculateBreakdowns(items, people, taxTip);
+
+    expect(b.serviceShareCents).toBe(1800);
+    expect(b.totalCents).toBe(11800);
+  });
+
+  it("changes no total when there is no service charge", () => {
+    const items = [makeItem("a", 6000, ["p1"])];
+    const people = [makePerson("p1")];
+    const taxTip = { ...defaultTaxTip, taxCents: 500, tipCents: 1000 };
+
+    const [b] = calculateBreakdowns(items, people, taxTip);
+
+    expect(b.serviceShareCents).toBe(0);
+    expect(b.totalCents).toBe(7500);
   });
 });

@@ -74,6 +74,24 @@ export function getEffectiveTipCents(
 }
 
 /**
+ * Calculate the effective service charge in cents.
+ * If serviceIsPercent, compute from subtotal.
+ *
+ * Falls back to 0 rather than trusting the field to exist: receipts created
+ * before service charge support have a taxTip map without these keys, and
+ * undefined would propagate as NaN through every total.
+ */
+export function getEffectiveServiceCents(
+  taxTip: TaxTip,
+  subtotalCents: number
+): number {
+  if (taxTip.serviceIsPercent) {
+    return Math.round((subtotalCents * (taxTip.servicePercent ?? 0)) / 100);
+  }
+  return taxTip.serviceCents ?? 0;
+}
+
+/**
  * Calculate the overall receipt subtotal (sum of all items: qty * price).
  */
 export function getSubtotalCents(items: ReceiptItem[]): number {
@@ -117,6 +135,7 @@ export function calculateBreakdowns(
       items: personItems,
       subtotalCents: personSubtotal,
       taxShareCents: 0,
+      serviceShareCents: 0,
       tipShareCents: 0,
       totalCents: 0,
     };
@@ -127,10 +146,19 @@ export function calculateBreakdowns(
   const personSubtotals = breakdowns.map((b) => b.subtotalCents);
   const totalPersonSubtotal = personSubtotals.reduce((a, b) => a + b, 0);
   const effectiveTaxCents = getEffectiveTaxCents(taxTip, totalPersonSubtotal);
+  const effectiveServiceCents = getEffectiveServiceCents(
+    taxTip,
+    totalPersonSubtotal
+  );
   const effectiveTipCents = getEffectiveTipCents(taxTip, totalPersonSubtotal);
 
   const taxShares = distributeProportionally(
     effectiveTaxCents,
+    personSubtotals,
+    totalPersonSubtotal
+  );
+  const serviceShares = distributeProportionally(
+    effectiveServiceCents,
     personSubtotals,
     totalPersonSubtotal
   );
@@ -142,9 +170,13 @@ export function calculateBreakdowns(
 
   for (let i = 0; i < breakdowns.length; i++) {
     breakdowns[i].taxShareCents = taxShares[i];
+    breakdowns[i].serviceShareCents = serviceShares[i];
     breakdowns[i].tipShareCents = tipShares[i];
     breakdowns[i].totalCents =
-      breakdowns[i].subtotalCents + taxShares[i] + tipShares[i];
+      breakdowns[i].subtotalCents +
+      taxShares[i] +
+      serviceShares[i] +
+      tipShares[i];
   }
 
   return breakdowns;
