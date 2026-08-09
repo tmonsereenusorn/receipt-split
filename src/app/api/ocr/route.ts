@@ -7,7 +7,7 @@ import {
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
 
-const EXTRACTION_PROMPT = `Extract line items, tax, tip, and currency from this receipt image. Return JSON only, no markdown.
+const EXTRACTION_PROMPT = `Extract line items, tax, tip, service charges, and currency from this receipt image. Return JSON only, no markdown.
 
 {
   "restaurantName": "string or null",

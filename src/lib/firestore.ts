@@ -10,13 +10,8 @@ import {
   type DocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import {
-  ReceiptDoc,
-  ReceiptItem,
-  Person,
-  TaxTip,
-  initialTaxTip,
-} from "@/types";
+import { ReceiptDoc, ReceiptItem, Person, TaxTip } from "@/types";
+import { normalizeTaxTip } from "./taxTip";
 
 const COLLECTION = "receipts";
 
@@ -44,7 +39,7 @@ export async function createReceipt(
     currency: partial.currency ?? "USD",
     items: partial.items ?? [],
     people: partial.people ?? [],
-    taxTip: partial.taxTip ?? initialTaxTip,
+    taxTip: normalizeTaxTip(partial.taxTip),
     imageDataUrl: partial.imageDataUrl ?? null,
     ocrText: partial.ocrText ?? null,
     createdAt: Date.now(),
@@ -236,7 +231,7 @@ export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    tx.update(ref, { taxTip: { ...data.taxTip, ...taxTip } });
+    tx.update(ref, { taxTip: { ...normalizeTaxTip(data.taxTip), ...taxTip } });
   });
 }
 
