@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  interpretExtraction,
+  MAX_OUTPUT_TOKENS,
+} from "@/lib/receiptExtraction";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
@@ -25,67 +29,8 @@ Rules:
 - currency: the ISO 4217 currency code detected from the receipt (look for currency symbols like $, €, ¥, £, or text). Default to "USD" if unclear.
 - If no items found, return empty items array`;
 
-interface RawItem {
-  name: string;
-  quantity: number;
-  priceCents: number;
-}
-
-interface ClaudeResponse {
-  restaurantName: string | null;
-  items: RawItem[];
-  taxCents: number | null;
-  tipCents: number | null;
-  currency: string;
-}
-
 function makeId(): string {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function parseAndValidate(text: string): ClaudeResponse {
-  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-  const parsed = JSON.parse(cleaned);
-
-  const restaurantName =
-    typeof parsed.restaurantName === "string" ? parsed.restaurantName : null;
-
-  const currency =
-    typeof parsed.currency === "string" && parsed.currency.length === 3
-      ? parsed.currency.toUpperCase()
-      : "USD";
-
-  if (!Array.isArray(parsed.items)) {
-    return { restaurantName, items: [], taxCents: null, tipCents: null, currency };
-  }
-
-  const items: RawItem[] = parsed.items
-    .filter(
-      (item: unknown): item is RawItem =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof (item as RawItem).name === "string" &&
-        typeof (item as RawItem).quantity === "number" &&
-        typeof (item as RawItem).priceCents === "number" &&
-        (item as RawItem).quantity > 0 &&
-        (item as RawItem).priceCents >= 0
-    )
-    .map((item: RawItem) => ({
-      name: item.name,
-      quantity: Math.round(item.quantity),
-      priceCents: Math.round(item.priceCents),
-    }));
-
-  const taxCents =
-    typeof parsed.taxCents === "number" && parsed.taxCents >= 0
-      ? Math.round(parsed.taxCents)
-      : null;
-  const tipCents =
-    typeof parsed.tipCents === "number" && parsed.tipCents >= 0
-      ? Math.round(parsed.tipCents)
-      : null;
-
-  return { restaurantName, items, taxCents, tipCents, currency };
 }
 
 export async function POST(request: NextRequest) {
@@ -135,7 +80,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        max_tokens: MAX_OUTPUT_TOKENS,
         messages: [
           {
             role: "user",
@@ -180,25 +125,24 @@ export async function POST(request: NextRequest) {
   }
 
   const anthropicData = await anthropicResponse.json();
-  const responseText = anthropicData.content?.[0]?.text ?? "";
+  const stopReason: string | null = anthropicData.stop_reason ?? null;
+  const responseText: string = anthropicData.content?.[0]?.text ?? "";
 
-  if (!responseText) {
+  const outcome = interpretExtraction(stopReason, responseText);
+
+  if (!outcome.ok) {
+    console.error(
+      `Receipt extraction failed (${outcome.code}), stop_reason=${stopReason}, ` +
+        `output_tokens=${anthropicData.usage?.output_tokens}:`,
+      responseText
+    );
     return NextResponse.json(
-      { error: "No response from OCR service" },
+      { error: outcome.message, code: outcome.code },
       { status: 422 }
     );
   }
 
-  let result: ClaudeResponse;
-  try {
-    result = parseAndValidate(responseText);
-  } catch {
-    console.error("Failed to parse Claude response:", responseText);
-    return NextResponse.json(
-      { error: "Failed to parse receipt data" },
-      { status: 422 }
-    );
-  }
+  const result = outcome.data;
 
   // Add id and assignedTo to each item
   const items = result.items.map((item) => ({
