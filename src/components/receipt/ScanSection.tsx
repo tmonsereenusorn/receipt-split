@@ -7,6 +7,7 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatMoney } from "@/lib/currency";
+import { taxTipFromExtraction } from "@/lib/taxTip";
 import type { ReceiptItem, TaxTip } from "@/types";
 
 export interface ScanResult {
@@ -32,13 +33,7 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
 
     const result = await ocr.recognize(file);
     if (result) {
-      const taxTip: Partial<TaxTip> | null =
-        result.taxCents != null || result.tipCents != null
-          ? {
-              ...(result.taxCents != null && { taxCents: result.taxCents, taxIsPercent: false }),
-              ...(result.tipCents != null && { tipCents: result.tipCents, tipIsPercent: false }),
-            }
-          : null;
+      const taxTip = taxTipFromExtraction(result);
       onScanResult({
         items: result.items,
         restaurantName: result.restaurantName,

@@ -5,8 +5,8 @@ import {
   ReceiptDoc,
   ReceiptItem,
   TaxTip,
-  initialTaxTip,
 } from "@/types";
+import { normalizeTaxTip } from "@/lib/taxTip";
 import {
   subscribeToReceipt,
   fsSetItems,
@@ -53,7 +53,10 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const items = data?.items ?? [];
   const people = data?.people ?? [];
-  const taxTip = data?.taxTip ?? initialTaxTip;
+  // Not `?? initialTaxTip`: a pre-service-charge doc HAS a taxTip, it is just
+  // missing the service keys, so the nullish fallback never fires and the
+  // missing fields would reach the calculator as undefined.
+  const taxTip = normalizeTaxTip(data?.taxTip);
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
