@@ -276,6 +276,16 @@ git commit -m "feat: model and distribute a service charge"
 - Consumes: nothing from Task 1.
 - Produces: `ExtractedReceipt.serviceChargeCents: number | null`, and the same field on `OcrResult` in `src/lib/ocr.ts`. Task 3 consumes both.
 
+**Orient yourself before editing.** `src/lib/receiptExtraction.ts` is richer than a first
+read might suggest, and none of it should be disturbed by this task:
+- `ExtractionFailureCode` has five members — `truncated`, `unreadable`, `empty`, `refused`,
+  `partial`. Do not add or remove any.
+- `extractJson()` already handles code fences case-insensitively and prose on either side.
+  Leave it alone.
+- `parseAndValidate` returns `ParseResult` (`{ receipt, dropped }`); `interpretExtraction`
+  turns any `dropped > 0` into a `partial` failure. Your change must not alter `dropped`.
+- A non-array `items` throws. That is intentional — do not convert it to an early return.
+
 - [ ] **Step 1: Write the failing tests**
 
 In `src/lib/__tests__/receiptExtraction.test.ts`, append:
@@ -334,18 +344,18 @@ describe("interpretExtraction service charge", () => {
     expect(result.data.serviceChargeCents).toBeNull();
   });
 
-  it("keeps the service charge when items is not an array", () => {
-    // parseAndValidate returns early on a malformed items field; that early
-    // return must still carry the service charge.
+  it("captures a service charge alongside items and tax", () => {
     const result = interpretExtraction(
       "end_turn",
-      '{"items":"none","serviceChargeCents":2567,"currency":"USD"}'
+      '{"restaurantName":"Cafe","items":[{"name":"Latte","quantity":1,"priceCents":450}],' +
+        '"taxCents":40,"serviceChargeCents":81,"currency":"USD"}'
     );
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.items).toEqual([]);
-    expect(result.data.serviceChargeCents).toBe(2567);
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.taxCents).toBe(40);
+    expect(result.data.serviceChargeCents).toBe(81);
   });
 });
 ```
@@ -373,22 +383,27 @@ Inside `parseAndValidate`, after the `currency` declaration, add:
       : null;
 ```
 
-Update the early return for a malformed `items` field to carry it:
+`parseAndValidate` returns a `ParseResult` wrapper (`{ receipt, dropped }`), not a bare
+`ExtractedReceipt`, and it **throws** on a non-array `items` rather than returning early.
+So there is exactly one place to add the field — the nested `receipt` object in the final
+return, currently at `src/lib/receiptExtraction.ts:132-135`:
 
 ```ts
-  if (!Array.isArray(parsed.items)) {
-    return {
+  return {
+    receipt: {
       restaurantName,
-      items: [],
-      taxCents: null,
-      tipCents: null,
+      items,
+      taxCents,
+      tipCents,
       serviceChargeCents,
       currency,
-    };
-  }
+    },
+    dropped: parsed.items.length - items.length,
+  };
 ```
 
-And add `serviceChargeCents,` to the final `return` object of `parseAndValidate`.
+Do not add an early return for malformed `items` — the current code throws there
+deliberately, and `interpretExtraction` maps that to the `unreadable` failure.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
