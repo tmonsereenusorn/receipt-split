@@ -85,6 +85,32 @@ describe("generateShareText service charge", () => {
 
     expect(text).not.toContain("Service");
   });
+
+  it("produces byte-identical share text when there is no service charge", () => {
+    const { items, breakdowns } = fixture(noCharges);
+
+    const text = generateShareText(items, noCharges, breakdowns, "USD");
+
+    expect(text).toBe(
+      [
+        "Shplit",
+        "─".repeat(30),
+        "Subtotal: $100.00",
+        "Tax: $0.00",
+        "Tip: $0.00",
+        "Total: $100.00",
+        "",
+        "Per Person:",
+        "─".repeat(30),
+        "p1: $60.00",
+        "  • a: $60.00",
+        "",
+        "p2: $40.00",
+        "  • b: $40.00",
+        "",
+      ].join("\n")
+    );
+  });
 });
 
 describe("generateCsv service charge", () => {
@@ -112,5 +138,21 @@ describe("generateCsv service charge", () => {
     const csv = generateCsv(items, noCharges, breakdowns, "USD");
 
     expect(csv).not.toContain("Service");
+  });
+
+  it("produces a byte-identical CSV when there is no service charge", () => {
+    const { items, breakdowns } = fixture(noCharges);
+
+    expect(generateCsv(items, noCharges, breakdowns, "USD")).toBe(
+      [
+        "Item,Qty,Price,Total,p1,p2",
+        '"a",1,60.00,60.00,60.00,',
+        '"b",1,40.00,40.00,,40.00',
+        "Subtotal,,,100.00,60.00,40.00",
+        "Tax,,,0.00,0.00,0.00",
+        "Tip,,,0.00,0.00,0.00",
+        "Total,,,100.00,60.00,40.00",
+      ].join("\n")
+    );
   });
 });

@@ -325,4 +325,15 @@ describe("calculateBreakdowns with a service charge", () => {
     expect(b.serviceShareCents).toBe(0);
     expect(b.totalCents).toBe(7500);
   });
+
+  it("does not compound tax on the service charge", () => {
+    const items = [makeItem("a", 10000, ["p1"])];
+    const people = [makePerson("p1")];
+    const taxTip = { ...defaultTaxTip, taxIsPercent: true, taxPercent: 10, serviceCents: 1000 };
+
+    const [b] = calculateBreakdowns(items, people, taxTip);
+
+    expect(b.taxShareCents).toBe(1000); // 10% of 10000, not of 11000
+    expect(b.totalCents).toBe(12000);
+  });
 });
