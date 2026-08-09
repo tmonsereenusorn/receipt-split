@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ReceiptItem, TaxTip } from "@/types";
 import { formatMoney, currencySymbol } from "@/lib/currency";
-import { getSubtotalCents, getEffectiveTaxCents, getEffectiveTipCents } from "@/lib/calculator";
+import { getSubtotalCents, getEffectiveTaxCents, getEffectiveTipCents, getEffectiveServiceCents } from "@/lib/calculator";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Section } from "./Section";
 
@@ -18,6 +18,9 @@ interface TotalsSectionProps {
 
 const TAX_PRESETS = [5, 7, 8, 10];
 const TIP_PRESETS = [15, 18, 20, 25];
+// Common venue service charges. Distinct from TIP_PRESETS, which start higher
+// because a discretionary tip is typically larger than an added service fee.
+const SERVICE_PRESETS = [10, 12.5, 15, 18];
 
 function EditableTaxTipRow({
   label,
@@ -158,7 +161,8 @@ export function TotalsSection({ items, taxTip, currency, onChange, collapseKey, 
   const subtotal = getSubtotalCents(items);
   const tax = getEffectiveTaxCents(taxTip, subtotal);
   const tip = getEffectiveTipCents(taxTip, subtotal);
-  const total = subtotal + tax + tip;
+  const service = getEffectiveServiceCents(taxTip, subtotal);
+  const total = subtotal + tax + service + tip;
 
   if (items.length === 0) return null;
 
@@ -186,6 +190,21 @@ export function TotalsSection({ items, taxTip, currency, onChange, collapseKey, 
               collapseKey={collapseKey}
               onExpand={onRowExpand}
             />
+            <div className={service === 0 ? "no-print" : undefined}>
+              <EditableTaxTipRow
+                label="SERVICE"
+                isPercent={taxTip.serviceIsPercent}
+                percent={taxTip.servicePercent}
+                cents={service}
+                presets={SERVICE_PRESETS}
+                currency={currency}
+                onToggleMode={(isPercent) => onChange({ serviceIsPercent: isPercent })}
+                onChangePercent={(pct) => onChange({ servicePercent: pct })}
+                onChangeCents={(cents) => onChange({ serviceCents: cents })}
+                collapseKey={collapseKey}
+                onExpand={onRowExpand}
+              />
+            </div>
             <EditableTaxTipRow
               label="TIP"
               isPercent={taxTip.tipIsPercent}
@@ -209,6 +228,15 @@ export function TotalsSection({ items, taxTip, currency, onChange, collapseKey, 
               <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
               <span className="shrink-0">{formatMoney(tax, currency)}</span>
             </div>
+            {service > 0 && (
+              <div className="print-muted flex items-baseline text-ink-muted">
+                <span className="shrink-0 uppercase">
+                  SERVICE{taxTip.serviceIsPercent ? ` (${taxTip.servicePercent}%)` : ""}
+                </span>
+                <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+                <span className="shrink-0">{formatMoney(service, currency)}</span>
+              </div>
+            )}
             <div className="print-muted flex items-baseline text-ink-muted">
               <span className="shrink-0 uppercase">
                 TIP{taxTip.tipIsPercent ? ` (${taxTip.tipPercent}%)` : ""}

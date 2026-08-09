@@ -1,5 +1,5 @@
 import { PersonBreakdown, ReceiptItem, TaxTip } from "@/types";
-import { getEffectiveTaxCents, getEffectiveTipCents, getSubtotalCents } from "./calculator";
+import { getEffectiveTaxCents, getEffectiveTipCents, getEffectiveServiceCents, getSubtotalCents } from "./calculator";
 import { formatMoney, formatMoneyRaw } from "./currency";
 
 /**
@@ -14,19 +14,25 @@ export function generateShareText(
   const subtotal = getSubtotalCents(items);
   const taxCents = getEffectiveTaxCents(taxTip, subtotal);
   const tipCents = getEffectiveTipCents(taxTip, subtotal);
-  const grandTotal = subtotal + taxCents + tipCents;
+  const serviceCents = getEffectiveServiceCents(taxTip, subtotal);
+  const grandTotal = subtotal + taxCents + serviceCents + tipCents;
 
   const lines: string[] = [
     "Shplit",
     "─".repeat(30),
     `Subtotal: ${formatMoney(subtotal, currency)}`,
     `Tax: ${formatMoney(taxCents, currency)}`,
+  ];
+  if (serviceCents > 0) {
+    lines.push(`Service: ${formatMoney(serviceCents, currency)}`);
+  }
+  lines.push(
     `Tip: ${formatMoney(tipCents, currency)}`,
     `Total: ${formatMoney(grandTotal, currency)}`,
     "",
     "Per Person:",
-    "─".repeat(30),
-  ];
+    "─".repeat(30)
+  );
 
   for (const b of breakdowns) {
     lines.push(`${b.person.name}: ${formatMoney(b.totalCents, currency)}`);
@@ -37,6 +43,9 @@ export function generateShareText(
     }
     if (b.taxShareCents > 0) {
       lines.push(`  • Tax: ${formatMoney(b.taxShareCents, currency)}`);
+    }
+    if (b.serviceShareCents > 0) {
+      lines.push(`  • Service: ${formatMoney(b.serviceShareCents, currency)}`);
     }
     if (b.tipShareCents > 0) {
       lines.push(`  • Tip: ${formatMoney(b.tipShareCents, currency)}`);
@@ -59,6 +68,7 @@ export function generateCsv(
   const subtotal = getSubtotalCents(items);
   const taxCents = getEffectiveTaxCents(taxTip, subtotal);
   const tipCents = getEffectiveTipCents(taxTip, subtotal);
+  const serviceCents = getEffectiveServiceCents(taxTip, subtotal);
 
   const rows: string[][] = [];
 
@@ -85,10 +95,14 @@ export function generateCsv(
   rows.push(["Subtotal", "", "", formatMoneyRaw(subtotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.subtotalCents, currency))]);
   // Tax row
   rows.push(["Tax", "", "", formatMoneyRaw(taxCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.taxShareCents, currency))]);
+  // Service row, omitted when there is no service charge
+  if (serviceCents > 0) {
+    rows.push(["Service", "", "", formatMoneyRaw(serviceCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.serviceShareCents, currency))]);
+  }
   // Tip row
   rows.push(["Tip", "", "", formatMoneyRaw(tipCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.tipShareCents, currency))]);
   // Total row
-  const grandTotal = subtotal + taxCents + tipCents;
+  const grandTotal = subtotal + taxCents + serviceCents + tipCents;
   rows.push(["Total", "", "", formatMoneyRaw(grandTotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.totalCents, currency))]);
 
   return rows.map((r) => r.join(",")).join("\n");
