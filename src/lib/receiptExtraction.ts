@@ -19,7 +19,12 @@ export interface ExtractedReceipt {
   currency: string;
 }
 
-export type ExtractionFailureCode = "truncated" | "unreadable" | "empty";
+export type ExtractionFailureCode =
+  | "truncated"
+  | "unreadable"
+  | "empty"
+  | "refused"
+  | "partial";
 
 export type ExtractionOutcome =
   | { ok: true; data: ExtractedReceipt }
@@ -41,18 +46,53 @@ const FAILURE_MESSAGES: Record<ExtractionFailureCode, string> = {
   unreadable:
     "Couldn't read a receipt in that image. Try a clearer, straight-on photo.",
   empty: "No response from OCR service. Please try again.",
+  refused:
+    "The OCR service wouldn't read that image. Try a photo of just the receipt.",
+  partial:
+    "Only part of that receipt could be read. Try a clearer, straight-on photo.",
 };
 
 function fail(code: ExtractionFailureCode): ExtractionOutcome {
   return { ok: false, code, message: FAILURE_MESSAGES[code] };
 }
 
-function parseAndValidate(text: string): ExtractedReceipt {
-  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-  const parsed = JSON.parse(cleaned);
+/**
+ * Pull the JSON body out of a model reply.
+ *
+ * The model is told to return bare JSON but sometimes wraps it in a fence, and
+ * sometimes adds a sentence either side of that fence. Anchoring the fence to
+ * the start and end of the string missed both of those, and the resulting parse
+ * error was reported to the user as an unreadable photo.
+ */
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced) return fenced[1].trim();
 
-  if (typeof parsed !== "object" || parsed === null) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end > start) return text.slice(start, end + 1);
+
+  return text.trim();
+}
+
+/** A parsed receipt plus the number of line items that failed validation. */
+interface ParseResult {
+  receipt: ExtractedReceipt;
+  dropped: number;
+}
+
+function parseAndValidate(text: string): ParseResult {
+  const parsed = JSON.parse(extractJson(text));
+
+  // typeof [] === "object", so arrays need excluding explicitly: a bare array
+  // reply is not a receipt, and letting it through produced an empty receipt
+  // that the UI reported as a successful scan.
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("Expected a JSON object");
+  }
+
+  if (!Array.isArray(parsed.items)) {
+    throw new Error("Expected an items array");
   }
 
   const restaurantName =
@@ -62,10 +102,6 @@ function parseAndValidate(text: string): ExtractedReceipt {
     typeof parsed.currency === "string" && parsed.currency.length === 3
       ? parsed.currency.toUpperCase()
       : "USD";
-
-  if (!Array.isArray(parsed.items)) {
-    return { restaurantName, items: [], taxCents: null, tipCents: null, currency };
-  }
 
   const items: ExtractedItem[] = parsed.items
     .filter(
@@ -93,7 +129,10 @@ function parseAndValidate(text: string): ExtractedReceipt {
       ? Math.round(parsed.tipCents)
       : null;
 
-  return { restaurantName, items, taxCents, tipCents, currency };
+  return {
+    receipt: { restaurantName, items, taxCents, tipCents, currency },
+    dropped: parsed.items.length - items.length,
+  };
 }
 
 /**
@@ -102,16 +141,27 @@ function parseAndValidate(text: string): ExtractedReceipt {
  * `stopReason` is checked before the text is parsed: a reply cut off at the
  * token cap is incomplete even in the rare case where it still parses, and
  * reporting it as success would silently drop the items that got cut.
+ *
+ * A refusal is separated from an empty reply because the two need opposite
+ * advice: an empty reply is transient and worth retrying, a refusal will
+ * reproduce on every retry of the same photo.
+ *
+ * Items that fail per-item validation are a failure too, for the same reason
+ * truncation is: a receipt that parses but is missing three dishes would
+ * otherwise be split as though it were complete.
  */
 export function interpretExtraction(
   stopReason: string | null,
   responseText: string
 ): ExtractionOutcome {
+  if (stopReason === "refusal") return fail("refused");
   if (stopReason === "max_tokens") return fail("truncated");
   if (!responseText) return fail("empty");
 
   try {
-    return { ok: true, data: parseAndValidate(responseText) };
+    const { receipt, dropped } = parseAndValidate(responseText);
+    if (dropped > 0) return fail("partial");
+    return { ok: true, data: receipt };
   } catch {
     return fail("unreadable");
   }

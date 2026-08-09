@@ -1,5 +1,20 @@
 import { prepareImageBase64 } from "./image";
+import type { ExtractionFailureCode } from "./receiptExtraction";
 import type { ReceiptItem } from "@/types";
+
+/**
+ * An OCR failure that carries the route's discriminated failure code, so the UI
+ * can tell a retryable failure from one that will reproduce on every retry.
+ */
+export class OcrError extends Error {
+  readonly code?: ExtractionFailureCode;
+
+  constructor(message: string, code?: ExtractionFailureCode) {
+    super(message);
+    this.name = "OcrError";
+    this.code = code;
+  }
+}
 
 export interface OcrResult {
   restaurantName: string | null;
@@ -24,13 +39,15 @@ export async function recognizeImage(image: File | string): Promise<OcrResult> {
 
   if (!response.ok) {
     let message = "OCR failed";
+    let code: ExtractionFailureCode | undefined;
     try {
       const body = await response.json();
       message = body.error || message;
+      code = body.code;
     } catch {
       message = `OCR failed (HTTP ${response.status})`;
     }
-    throw new Error(message);
+    throw new OcrError(message, code);
   }
 
   const data = await response.json();
