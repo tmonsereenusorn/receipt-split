@@ -16,6 +16,7 @@ export interface ExtractedReceipt {
   items: ExtractedItem[];
   taxCents: number | null;
   tipCents: number | null;
+  serviceChargeCents: number | null;
   currency: string;
 }
 
@@ -128,9 +129,20 @@ function parseAndValidate(text: string): ParseResult {
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0
       ? Math.round(parsed.tipCents)
       : null;
+  const serviceChargeCents =
+    typeof parsed.serviceChargeCents === "number" && parsed.serviceChargeCents >= 0
+      ? Math.round(parsed.serviceChargeCents)
+      : null;
 
   return {
-    receipt: { restaurantName, items, taxCents, tipCents, currency },
+    receipt: {
+      restaurantName,
+      items,
+      taxCents,
+      tipCents,
+      serviceChargeCents,
+      currency,
+    },
     dropped: parsed.items.length - items.length,
   };
 }

@@ -162,3 +162,71 @@ describe("interpretExtraction", () => {
     expect(unreadable.message.length).toBeGreaterThan(0);
   });
 });
+
+describe("interpretExtraction service charge", () => {
+  it("parses a service charge", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"serviceChargeCents":2567,"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.serviceChargeCents).toBe(2567);
+  });
+
+  it("rounds a fractional service charge", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"serviceChargeCents":2566.8,"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.serviceChargeCents).toBe(2567);
+  });
+
+  it("treats an absent service charge as null", () => {
+    const result = interpretExtraction("end_turn", '{"items":[],"currency":"USD"}');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.serviceChargeCents).toBeNull();
+  });
+
+  it("treats a negative service charge as null", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"serviceChargeCents":-500,"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.serviceChargeCents).toBeNull();
+  });
+
+  it("treats a non-numeric service charge as null", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"serviceChargeCents":"18%","currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.serviceChargeCents).toBeNull();
+  });
+
+  it("captures a service charge alongside items and tax", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"restaurantName":"Cafe","items":[{"name":"Latte","quantity":1,"priceCents":450}],' +
+        '"taxCents":40,"serviceChargeCents":81,"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.taxCents).toBe(40);
+    expect(result.data.serviceChargeCents).toBe(81);
+  });
+});

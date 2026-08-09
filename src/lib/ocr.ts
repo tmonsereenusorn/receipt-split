@@ -21,6 +21,7 @@ export interface OcrResult {
   items: ReceiptItem[];
   taxCents: number | null;
   tipCents: number | null;
+  serviceChargeCents: number | null;
   currency: string;
 }
 
@@ -56,6 +57,8 @@ export async function recognizeImage(image: File | string): Promise<OcrResult> {
     items: Array.isArray(data.items) ? data.items : [],
     taxCents: typeof data.taxCents === "number" ? data.taxCents : null,
     tipCents: typeof data.tipCents === "number" ? data.tipCents : null,
+    serviceChargeCents:
+      typeof data.serviceChargeCents === "number" ? data.serviceChargeCents : null,
     currency: typeof data.currency === "string" ? data.currency : "USD",
   };
 }

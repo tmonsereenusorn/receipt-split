@@ -16,6 +16,7 @@ const EXTRACTION_PROMPT = `Extract line items, tax, tip, and currency from this 
   ],
   "taxCents": number or null,
   "tipCents": number or null,
+  "serviceChargeCents": number or null,
   "currency": "ISO 4217 code, e.g. USD, EUR, JPY"
 }
 
@@ -26,6 +27,10 @@ Rules:
 - Exclude payment method lines, dates, addresses, phone numbers from items
 - taxCents: the tax amount in integer cents, or null if not found
 - tipCents: the tip/gratuity amount in integer cents, or null if not found
+- serviceChargeCents: mandatory fees added by the venue, in integer cents, or null if not found
+- The tip/service split is mandatory vs. discretionary, not the wording: a tip or gratuity the diner chose goes in tipCents; anything auto-added by the venue goes in serviceChargeCents
+- Fees that belong in serviceChargeCents: service charge, service fee, auto-gratuity, large party fee, kitchen or wellness fee, regulatory or health surcharge, delivery fee, bag fee
+- If several such fees are listed, sum them into one serviceChargeCents figure
 - currency: the ISO 4217 currency code detected from the receipt (look for currency symbols like $, €, ¥, £, or text). Default to "USD" if unclear.
 - If no items found, return empty items array`;
 
@@ -177,6 +182,7 @@ export async function POST(request: NextRequest) {
     items,
     taxCents: result.taxCents,
     tipCents: result.tipCents,
+    serviceChargeCents: result.serviceChargeCents,
     currency: result.currency,
   });
 }
