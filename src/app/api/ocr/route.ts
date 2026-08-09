@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  interpretExtraction,
+  MAX_OUTPUT_TOKENS,
+} from "@/lib/receiptExtraction";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
@@ -25,68 +29,21 @@ Rules:
 - currency: the ISO 4217 currency code detected from the receipt (look for currency symbols like $, €, ¥, £, or text). Default to "USD" if unclear.
 - If no items found, return empty items array`;
 
-interface RawItem {
-  name: string;
-  quantity: number;
-  priceCents: number;
+/**
+ * Every id for one receipt is minted in a single synchronous map, so Date.now()
+ * is identical across them and the 4-char random suffix was the only thing
+ * keeping them apart. At the ~190 items MAX_OUTPUT_TOKENS now allows that
+ * collides often enough to matter, and a duplicate id cross-assigns diners:
+ * fsToggleAssignment and fsUpdateItem both match every item with that id.
+ * The index makes collisions within a receipt impossible.
+ */
+function makeId(index: number): string {
+  return `item-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-interface ClaudeResponse {
-  restaurantName: string | null;
-  items: RawItem[];
-  taxCents: number | null;
-  tipCents: number | null;
-  currency: string;
-}
-
-function makeId(): string {
-  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function parseAndValidate(text: string): ClaudeResponse {
-  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-  const parsed = JSON.parse(cleaned);
-
-  const restaurantName =
-    typeof parsed.restaurantName === "string" ? parsed.restaurantName : null;
-
-  const currency =
-    typeof parsed.currency === "string" && parsed.currency.length === 3
-      ? parsed.currency.toUpperCase()
-      : "USD";
-
-  if (!Array.isArray(parsed.items)) {
-    return { restaurantName, items: [], taxCents: null, tipCents: null, currency };
-  }
-
-  const items: RawItem[] = parsed.items
-    .filter(
-      (item: unknown): item is RawItem =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof (item as RawItem).name === "string" &&
-        typeof (item as RawItem).quantity === "number" &&
-        typeof (item as RawItem).priceCents === "number" &&
-        (item as RawItem).quantity > 0 &&
-        (item as RawItem).priceCents >= 0
-    )
-    .map((item: RawItem) => ({
-      name: item.name,
-      quantity: Math.round(item.quantity),
-      priceCents: Math.round(item.priceCents),
-    }));
-
-  const taxCents =
-    typeof parsed.taxCents === "number" && parsed.taxCents >= 0
-      ? Math.round(parsed.taxCents)
-      : null;
-  const tipCents =
-    typeof parsed.tipCents === "number" && parsed.tipCents >= 0
-      ? Math.round(parsed.tipCents)
-      : null;
-
-  return { restaurantName, items, taxCents, tipCents, currency };
-}
+// The model can spend up to MAX_OUTPUT_TOKENS generating a long receipt, which
+// takes well past the old 30s budget. Keep the fetch abort under this ceiling.
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -121,7 +78,7 @@ export async function POST(request: NextRequest) {
   const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort(), 110_000);
 
   let anthropicResponse: Response;
   try {
@@ -135,7 +92,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        max_tokens: MAX_OUTPUT_TOKENS,
         messages: [
           {
             role: "user",
@@ -180,30 +137,38 @@ export async function POST(request: NextRequest) {
   }
 
   const anthropicData = await anthropicResponse.json();
-  const responseText = anthropicData.content?.[0]?.text ?? "";
+  const stopReason: string | null = anthropicData.stop_reason ?? null;
+  // Read the first text block rather than content[0]: a non-text leading block
+  // would otherwise read as an empty reply and be reported as retryable.
+  const responseText: string =
+    (Array.isArray(anthropicData.content)
+      ? anthropicData.content.find(
+          (block: { type?: string }) => block?.type === "text"
+        )?.text
+      : undefined) ?? "";
 
-  if (!responseText) {
+  const outcome = interpretExtraction(stopReason, responseText);
+
+  if (!outcome.ok) {
+    console.error(
+      `Receipt extraction failed (${outcome.code}), stop_reason=${stopReason}, ` +
+        `output_tokens=${anthropicData.usage?.output_tokens}:`,
+      // Truncated: a failed large-receipt reply is ~30KB of itemised purchase
+      // detail, and the failing path is the large-receipt one by construction.
+      responseText.slice(0, 500)
+    );
     return NextResponse.json(
-      { error: "No response from OCR service" },
+      { error: outcome.message, code: outcome.code },
       { status: 422 }
     );
   }
 
-  let result: ClaudeResponse;
-  try {
-    result = parseAndValidate(responseText);
-  } catch {
-    console.error("Failed to parse Claude response:", responseText);
-    return NextResponse.json(
-      { error: "Failed to parse receipt data" },
-      { status: 422 }
-    );
-  }
+  const result = outcome.data;
 
   // Add id and assignedTo to each item
-  const items = result.items.map((item) => ({
+  const items = result.items.map((item, index) => ({
     ...item,
-    id: makeId(),
+    id: makeId(index),
     assignedTo: [] as string[],
   }));
 
