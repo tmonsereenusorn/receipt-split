@@ -697,7 +697,7 @@ export function taxTipFromExtraction(
 
 Run: `npx vitest run src/lib/__tests__/taxTip.test.ts`
 
-Expected: PASS, 13 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Use the derivation in `ScanSection`**
 
