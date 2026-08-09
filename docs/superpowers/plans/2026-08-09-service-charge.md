@@ -1131,7 +1131,9 @@ Expected: PASS. This is the unit-level proof that a detected service charge sets
 - [ ] **Step 6: Stop the server**
 
 ```bash
-pkill -f "next start"
+# The process is named "next-server", NOT "next start" — matching on the npm
+# script name silently kills nothing and leaves the port held.
+pkill -f "next-server"
 ```
 
 - [ ] **Step 7: Final full verification**
@@ -1140,7 +1142,14 @@ Run: `npm test && npx tsc --noEmit && npm run build`
 
 Expected: all tests PASS, tsc clean, build compiles.
 
-Note: `npx eslint src` reports 8 pre-existing errors on `main` in components and hooks unrelated to this work. Confirm your count matches 8 and that none are in files this plan touched.
+Note: `npx eslint src` reports 8 pre-existing errors on `main`. Confirm the count is still exactly
+8 and that this work introduced none.
+
+Two of the 8 are physically located in files this plan touches — `TotalsSection.tsx`
+(`react-hooks/set-state-in-effect`, inside the untouched `EditableTaxTipRow`, line-shifted by the
+`SERVICE_PRESETS` block added above it) and `useFirestoreReceipt.ts`. Both are pre-existing and
+unchanged in substance. "Same count, same rules, same code" is the check — not "no errors in
+touched files", which was the earlier wording and is not literally true.
 
 - [ ] **Step 8: Open the pull request**
 
