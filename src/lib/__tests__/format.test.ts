@@ -41,63 +41,104 @@ describe("timeAgo", () => {
 
 
 describe("generateShareText", () => {
-  // Byte-identity baseline. Captured from the implementation, not hand-written,
-  // so it is a regression pin rather than a restatement of the code. Note there
-  // is no permanent "Tax" line any more: a charge appears only if the receipt
-  // carried one.
-  it("produces exactly this text when there are no charges", () => {
+  const LINK = "https://shplit.vercel.app/receipt/aB3xY";
+
+  it("produces exactly this text: total, one line per person, then the link", () => {
+    // Byte-identity, because this is what gets pasted into a group chat and a
+    // stray line is immediately visible to everyone in it.
     const { items, breakdowns } = fixture([]);
 
-    expect(generateShareText(items, [], NO_TIP, breakdowns, "USD")).toBe(
+    expect(
+      generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, "The Garden Bistro")
+    ).toBe(
       [
-        "Shplit",
-        "\u2500".repeat(30),
-        "Subtotal: $100.00",
-        "Tip: $0.00",
+        "Shplit · The Garden Bistro",
         "Total: $100.00",
         "",
-        "Per Person:",
-        "\u2500".repeat(30),
         "p1: $60.00",
-        "  \u2022 a: $60.00",
-        "",
         "p2: $40.00",
-        "  \u2022 b: $40.00",
         "",
+        LINK,
       ].join("\n")
     );
   });
 
-  it("lists each charge by its parsed label", () => {
-    const charges = [
-      { id: "c1", label: "Tax", amountCents: 537 },
-      { id: "c2", label: "Service Charge 18%", amountCents: 1800 },
+  it("omits the restaurant when the receipt has no name", () => {
+    const { items, breakdowns } = fixture([]);
+
+    const text = generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, null);
+
+    expect(text.split("\n")[0]).toBe("Shplit");
+  });
+
+  it("includes charges and tip in the total but never itemises them", () => {
+    // The whole point of the format: the totals are right, the breakdown is a
+    // tap away rather than pasted into the chat.
+    const charges = [{ id: "c1", label: "Tax", amountCents: 800 }];
+    const tip: Tip = { cents: 0, isPercent: true, percent: 20 };
+    const { items, breakdowns } = fixture(charges, tip);
+
+    const text = generateShareText(items, charges, tip, breakdowns, "USD", LINK, null);
+
+    expect(text).toContain("Total: $128.00");
+    expect(text).not.toContain("Tax");
+    expect(text).not.toContain("Tip");
+  });
+
+  it("never lists an item", () => {
+    const charges = [{ id: "c1", label: "Tax", amountCents: 800 }];
+    const { items, breakdowns } = fixture(charges);
+
+    const text = generateShareText(items, charges, NO_TIP, breakdowns, "USD", LINK, null);
+
+    // fixture items are named "a" and "b"
+    expect(text).not.toMatch(/^\s*[•·]/m);
+    expect(text.split("\n").filter((l) => l.startsWith("a:")).length).toBe(0);
+  });
+
+  it("flags an unassigned remainder so the numbers reconcile", () => {
+    // Charges and tip are distributed across assigned items only, so with
+    // anything unassigned the per-person lines sum to less than the total. Left
+    // silent, that reads as an arithmetic error.
+    const items = [
+      mkItem("a", 6000, ["p1"]),
+      mkItem("b", 4000, ["p2"]),
+      mkItem("c", 3000, []),
     ];
-    const { items, breakdowns } = fixture(charges);
+    const people = [mkPerson("p1"), mkPerson("p2")];
+    const breakdowns = calculateBreakdowns(items, people, [], NO_TIP);
 
-    const text = generateShareText(items, charges, NO_TIP, breakdowns, "USD");
+    const text = generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, null);
 
-    expect(text).toContain("Tax: $5.37");
-    expect(text).toContain("Service Charge 18%: $18.00");
+    expect(text).toContain("Total: $130.00 · $30.00 unassigned");
   });
 
-  it("includes every charge in the grand total", () => {
-    const charges = [{ id: "c1", label: "Tax", amountCents: 500 }];
-    const { items, breakdowns } = fixture(charges);
+  it("says nothing about unassigned when everything is assigned", () => {
+    const { items, breakdowns } = fixture([]);
 
-    expect(generateShareText(items, charges, NO_TIP, breakdowns, "USD")).toContain(
-      "Total: $105.00"
-    );
+    expect(
+      generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, null)
+    ).not.toContain("unassigned");
   });
 
-  it("shows each person their share of each charge", () => {
-    const charges = [{ id: "c1", label: "Bag Fee", amountCents: 100 }];
-    const { items, breakdowns } = fixture(charges);
+  it("ends with the link", () => {
+    const { items, breakdowns } = fixture([]);
 
-    const text = generateShareText(items, charges, NO_TIP, breakdowns, "USD");
+    const text = generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, null);
 
-    expect(text).toContain("\u2022 Bag Fee: $0.60");
-    expect(text).toContain("\u2022 Bag Fee: $0.40");
+    expect(text.trimEnd().endsWith(LINK)).toBe(true);
+  });
+
+  it("omits a person who owes nothing", () => {
+    // Someone added to the receipt but assigned no items is noise in a summary.
+    const items = [mkItem("a", 6000, ["p1"])];
+    const people = [mkPerson("p1"), mkPerson("p2")];
+    const breakdowns = calculateBreakdowns(items, people, [], NO_TIP);
+
+    const text = generateShareText(items, [], NO_TIP, breakdowns, "USD", LINK, null);
+
+    expect(text).toContain("p1: $60.00");
+    expect(text).not.toContain("p2:");
   });
 });
 
@@ -142,14 +183,23 @@ describe("negative charges in exports", () => {
     { id: "c2", label: "Promo", amountCents: -1000 },
   ];
 
-  it("renders a discount in the share text rather than hiding it", () => {
+  it("counts a discount in the share text total, though it no longer itemises", () => {
+    // The compact format shows no charge lines, but a negative charge must
+    // still reduce the total — otherwise the summary overstates the bill.
     const { items, breakdowns } = fixture(charges);
 
-    const text = generateShareText(items, charges, NO_TIP, breakdowns, "USD");
+    const text = generateShareText(
+      items,
+      charges,
+      NO_TIP,
+      breakdowns,
+      "USD",
+      "https://example.test/r/1",
+      null
+    );
 
-    expect(text).toContain("Promo: -$10.00");
-    expect(text).toContain("\u2022 Promo: -$6.00");
     expect(text).toContain("Total: $98.00");
+    expect(text).not.toContain("Promo");
   });
 
   it("renders a discount row in the CSV with negative shares", () => {
