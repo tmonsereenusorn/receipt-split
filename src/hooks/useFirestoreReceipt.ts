@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import {
   ReceiptDoc,
   ReceiptItem,
-  TaxTip,
-  initialTaxTip,
+  ReceiptCharge,
+  Tip,
 } from "@/types";
+import { normalizeReceiptMoney } from "@/lib/charges";
 import {
   subscribeToReceipt,
   fsSetItems,
@@ -19,7 +20,10 @@ import {
   fsUpdatePerson,
   fsDeletePerson,
   fsToggleAssignment,
-  fsSetTaxTip,
+  fsAddCharge,
+  fsUpdateCharge,
+  fsDeleteCharge,
+  fsSetTip,
   fsSetRestaurantName,
   fsSetCurrency,
   fsSetOcrText,
@@ -53,7 +57,9 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const items = data?.items ?? [];
   const people = data?.people ?? [];
-  const taxTip = data?.taxTip ?? initialTaxTip;
+  // Recomputed on every render rather than stored, so a legacy document is
+  // converted on each read and no consumer can see the pre-charges shape.
+  const { charges, tip } = normalizeReceiptMoney(data, items);
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
@@ -188,13 +194,70 @@ export function useFirestoreReceipt(receiptId: string) {
     [receiptId]
   );
 
-  const setTaxTip = useCallback(
-    (updates: Partial<TaxTip>) => {
-      setData(prev => prev ? { ...prev, taxTip: { ...prev.taxTip, ...updates } } : prev);
-      fsSetTaxTip(receiptId, updates);
+  const addCharge = useCallback(
+    (label: string, amountCents: number) => {
+      const charge: ReceiptCharge = {
+        id: `charge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        label,
+        amountCents,
+      };
+      setData(prev => {
+        if (!prev) return prev;
+        // Build from the normalized shape, not prev.charges: on a legacy
+        // document prev.charges is undefined, and writing a bare array would
+        // send the next read down the new-shape branch, discarding the migrated
+        // charges instead of merging with them. Mirrors the transaction side.
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges: [...charges, charge], tip };
+      });
+      fsAddCharge(receiptId, charge);
     },
     [receiptId]
   );
+
+  const updateCharge = useCallback(
+    (chargeId: string, updates: Partial<Omit<ReceiptCharge, "id">>) => {
+      setData(prev => {
+        if (!prev) return prev;
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return {
+          ...prev,
+          charges: charges.map(c => (c.id === chargeId ? { ...c, ...updates } : c)),
+          tip,
+        };
+      });
+      fsUpdateCharge(receiptId, chargeId, updates);
+    },
+    [receiptId]
+  );
+
+  const deleteCharge = useCallback(
+    (chargeId: string) => {
+      setData(prev => {
+        if (!prev) return prev;
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges: charges.filter(c => c.id !== chargeId), tip };
+      });
+      fsDeleteCharge(receiptId, chargeId);
+    },
+    [receiptId]
+  );
+
+  const setTip = useCallback(
+    (updates: Partial<Tip>) => {
+      setData(prev => {
+        if (!prev) return prev;
+        // charges must be written too: without it a legacy document still has no
+        // charges key, so the next normalize takes the taxTip branch and throws
+        // this tip away.
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges, tip: { ...tip, ...updates } };
+      });
+      fsSetTip(receiptId, updates);
+    },
+    [receiptId]
+  );
+
 
   const setCurrency = useCallback(
     (currency: string) => {
@@ -223,7 +286,8 @@ export function useFirestoreReceipt(receiptId: string) {
   return {
     items,
     people,
-    taxTip,
+    charges,
+    tip,
     imageDataUrl,
     ocrText,
     restaurantName,
@@ -240,7 +304,10 @@ export function useFirestoreReceipt(receiptId: string) {
     updatePerson,
     deletePerson,
     toggleAssignment,
-    setTaxTip,
+    addCharge,
+    updateCharge,
+    deleteCharge,
+    setTip,
     setCurrency,
     setRestaurantName,
     setOcrText,

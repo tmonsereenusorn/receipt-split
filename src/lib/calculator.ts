@@ -1,4 +1,10 @@
-import { ReceiptItem, Person, TaxTip, PersonBreakdown } from "@/types";
+import {
+  ReceiptItem,
+  Person,
+  ReceiptCharge,
+  Tip,
+  PersonBreakdown,
+} from "@/types";
 
 /**
  * Calculate per-person share of a single item's total cost (qty * price).
@@ -46,31 +52,27 @@ function distributeProportionally(
 }
 
 /**
- * Calculate the effective tax in cents.
- * If taxIsPercent, compute from subtotal.
+ * Sum every charge on the receipt.
+ *
+ * Charges are always cash, so this is a plain sum — there is no percent mode to
+ * resolve. Only the tip has one.
  */
-export function getEffectiveTaxCents(
-  taxTip: TaxTip,
-  subtotalCents: number
-): number {
-  if (taxTip.taxIsPercent) {
-    return Math.round((subtotalCents * taxTip.taxPercent) / 100);
-  }
-  return taxTip.taxCents;
+export function getChargesTotalCents(charges: ReceiptCharge[]): number {
+  return charges.reduce((sum, charge) => sum + charge.amountCents, 0);
 }
 
 /**
  * Calculate the effective tip in cents.
- * If tipIsPercent, compute from subtotal.
+ * If tip.isPercent, compute from the subtotal.
+ *
+ * Deliberately takes the subtotal rather than the running total: a percentage
+ * tip compounding on a service charge would inflate the bill.
  */
-export function getEffectiveTipCents(
-  taxTip: TaxTip,
-  subtotalCents: number
-): number {
-  if (taxTip.tipIsPercent) {
-    return Math.round((subtotalCents * taxTip.tipPercent) / 100);
+export function getEffectiveTipCents(tip: Tip, subtotalCents: number): number {
+  if (tip.isPercent) {
+    return Math.round((subtotalCents * tip.percent) / 100);
   }
-  return taxTip.tipCents;
+  return tip.cents;
 }
 
 /**
@@ -89,7 +91,8 @@ export function getSubtotalCents(items: ReceiptItem[]): number {
 export function calculateBreakdowns(
   items: ReceiptItem[],
   people: Person[],
-  taxTip: TaxTip
+  charges: ReceiptCharge[],
+  tip: Tip
 ): PersonBreakdown[] {
   // Build per-person item shares
   const breakdowns: PersonBreakdown[] = people.map((person) => {
@@ -116,35 +119,46 @@ export function calculateBreakdowns(
       person,
       items: personItems,
       subtotalCents: personSubtotal,
-      taxShareCents: 0,
+      chargeShares: [],
       tipShareCents: 0,
       totalCents: 0,
     };
   });
 
-  // Compute tax/tip based on assigned items only so each person's
-  // share equals taxRate * their subtotal (not inflated by unassigned items)
+  // Compute charges and tip from assigned items only, so each person's share is
+  // proportional to what they actually ordered rather than to unassigned items.
   const personSubtotals = breakdowns.map((b) => b.subtotalCents);
   const totalPersonSubtotal = personSubtotals.reduce((a, b) => a + b, 0);
-  const effectiveTaxCents = getEffectiveTaxCents(taxTip, totalPersonSubtotal);
-  const effectiveTipCents = getEffectiveTipCents(taxTip, totalPersonSubtotal);
 
-  const taxShares = distributeProportionally(
-    effectiveTaxCents,
-    personSubtotals,
-    totalPersonSubtotal
-  );
+  // Each charge is distributed independently, so every charge's shares sum
+  // exactly to that charge rather than only the lumped total being exact.
+  for (const charge of charges) {
+    const shares = distributeProportionally(
+      charge.amountCents,
+      personSubtotals,
+      totalPersonSubtotal
+    );
+    for (let i = 0; i < breakdowns.length; i++) {
+      breakdowns[i].chargeShares.push({
+        chargeId: charge.id,
+        label: charge.label,
+        shareCents: shares[i],
+      });
+    }
+  }
+
   const tipShares = distributeProportionally(
-    effectiveTipCents,
+    getEffectiveTipCents(tip, totalPersonSubtotal),
     personSubtotals,
     totalPersonSubtotal
   );
 
   for (let i = 0; i < breakdowns.length; i++) {
-    breakdowns[i].taxShareCents = taxShares[i];
     breakdowns[i].tipShareCents = tipShares[i];
     breakdowns[i].totalCents =
-      breakdowns[i].subtotalCents + taxShares[i] + tipShares[i];
+      breakdowns[i].subtotalCents +
+      breakdowns[i].chargeShares.reduce((s, c) => s + c.shareCents, 0) +
+      tipShares[i];
   }
 
   return breakdowns;

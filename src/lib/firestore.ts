@@ -1,3 +1,4 @@
+import { isValidChargeAmount, normalizeReceiptMoney } from "./charges";
 import {
   doc,
   addDoc,
@@ -14,8 +15,9 @@ import {
   ReceiptDoc,
   ReceiptItem,
   Person,
-  TaxTip,
-  initialTaxTip,
+  Tip,
+  initialTip,
+  ReceiptCharge,
 } from "@/types";
 
 const COLLECTION = "receipts";
@@ -44,7 +46,8 @@ export async function createReceipt(
     currency: partial.currency ?? "USD",
     items: partial.items ?? [],
     people: partial.people ?? [],
-    taxTip: partial.taxTip ?? initialTaxTip,
+    charges: partial.charges ?? [],
+    tip: partial.tip ?? initialTip,
     imageDataUrl: partial.imageDataUrl ?? null,
     ocrText: partial.ocrText ?? null,
     createdAt: Date.now(),
@@ -230,13 +233,70 @@ export async function fsToggleAssignment(
   });
 }
 
-/** Atomic: update tax/tip */
-export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
+/**
+ * Charge mutations persist `tip` alongside `charges`, always.
+ *
+ * Writing charges alone on a pre-charges document leaves it with taxTip +
+ * charges + no tip key, so the next read takes the new-shape branch and
+ * resolves the tip to the default — permanently replacing whatever the diner
+ * had set. Every write converts the whole money shape or none of it.
+ */
+export async function fsAddCharge(id: string, charge: ReceiptCharge) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    tx.update(ref, { taxTip: { ...data.taxTip, ...taxTip } });
+    if (!isValidChargeAmount(charge.amountCents)) {
+      throw new Error("Charge amount out of range");
+    }
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: [...charges, charge], tip });
+  });
+}
+
+export async function fsUpdateCharge(
+  id: string,
+  chargeId: string,
+  updates: Partial<Omit<ReceiptCharge, "id">>
+) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    // Validated on write as well as read: an out-of-range amount written here
+    // would be silently dropped by every later read, so the row would vanish
+    // with no message while the bad value stayed in the document.
+    if (
+      updates.amountCents !== undefined &&
+      !isValidChargeAmount(updates.amountCents)
+    ) {
+      throw new Error("Charge amount out of range");
+    }
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, {
+      charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),
+      tip,
+    });
+  });
+}
+
+export async function fsDeleteCharge(id: string, chargeId: string) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId), tip });
+  });
+}
+
+export async function fsSetTip(id: string, updates: Partial<Tip>) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges, tip: { ...tip, ...updates } });
   });
 }
 

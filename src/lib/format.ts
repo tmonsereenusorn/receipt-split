@@ -1,5 +1,9 @@
-import { PersonBreakdown, ReceiptItem, TaxTip } from "@/types";
-import { getEffectiveTaxCents, getEffectiveTipCents, getSubtotalCents } from "./calculator";
+import { PersonBreakdown, ReceiptCharge, ReceiptItem, Tip } from "@/types";
+import {
+  getChargesTotalCents,
+  getEffectiveTipCents,
+  getSubtotalCents,
+} from "./calculator";
 import { formatMoney, formatMoneyRaw } from "./currency";
 
 /**
@@ -7,20 +11,23 @@ import { formatMoney, formatMoneyRaw } from "./currency";
  */
 export function generateShareText(
   items: ReceiptItem[],
-  taxTip: TaxTip,
+  charges: ReceiptCharge[],
+  tip: Tip,
   breakdowns: PersonBreakdown[],
   currency: string
 ): string {
   const subtotal = getSubtotalCents(items);
-  const taxCents = getEffectiveTaxCents(taxTip, subtotal);
-  const tipCents = getEffectiveTipCents(taxTip, subtotal);
-  const grandTotal = subtotal + taxCents + tipCents;
+  const tipCents = getEffectiveTipCents(tip, subtotal);
+  const chargesTotal = getChargesTotalCents(charges);
+  const grandTotal = subtotal + chargesTotal + tipCents;
 
   const lines: string[] = [
     "Shplit",
     "─".repeat(30),
     `Subtotal: ${formatMoney(subtotal, currency)}`,
-    `Tax: ${formatMoney(taxCents, currency)}`,
+    ...charges
+      .filter((c) => c.amountCents !== 0)
+      .map((c) => `${c.label}: ${formatMoney(c.amountCents, currency)}`),
     `Tip: ${formatMoney(tipCents, currency)}`,
     `Total: ${formatMoney(grandTotal, currency)}`,
     "",
@@ -35,8 +42,11 @@ export function generateShareText(
         pi.splitCount > 1 ? ` (1/${pi.splitCount})` : "";
       lines.push(`  • ${pi.item.name}${splitNote}: ${formatMoney(pi.shareCents, currency)}`);
     }
-    if (b.taxShareCents > 0) {
-      lines.push(`  • Tax: ${formatMoney(b.taxShareCents, currency)}`);
+    for (const share of b.chargeShares) {
+      // !== 0 rather than > 0: a discount is a negative charge and must show.
+      if (share.shareCents !== 0) {
+        lines.push(`  • ${share.label}: ${formatMoney(share.shareCents, currency)}`);
+      }
     }
     if (b.tipShareCents > 0) {
       lines.push(`  • Tip: ${formatMoney(b.tipShareCents, currency)}`);
@@ -52,13 +62,14 @@ export function generateShareText(
  */
 export function generateCsv(
   items: ReceiptItem[],
-  taxTip: TaxTip,
+  charges: ReceiptCharge[],
+  tip: Tip,
   breakdowns: PersonBreakdown[],
   currency: string
 ): string {
   const subtotal = getSubtotalCents(items);
-  const taxCents = getEffectiveTaxCents(taxTip, subtotal);
-  const tipCents = getEffectiveTipCents(taxTip, subtotal);
+  const tipCents = getEffectiveTipCents(tip, subtotal);
+  const chargesTotal = getChargesTotalCents(charges);
 
   const rows: string[][] = [];
 
@@ -84,11 +95,27 @@ export function generateCsv(
   // Subtotal row
   rows.push(["Subtotal", "", "", formatMoneyRaw(subtotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.subtotalCents, currency))]);
   // Tax row
-  rows.push(["Tax", "", "", formatMoneyRaw(taxCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.taxShareCents, currency))]);
+  for (const charge of charges) {
+    if (charge.amountCents === 0) continue;
+    rows.push([
+      `"${charge.label.replace(/"/g, '""')}"`,
+      "",
+      "",
+      formatMoneyRaw(charge.amountCents, currency),
+      // Matched by id, not array position: chargeShares carries chargeId for
+      // exactly this, and a positional lookup would silently zero a mismatch.
+      ...breakdowns.map((b) =>
+        formatMoneyRaw(
+          b.chargeShares.find((s) => s.chargeId === charge.id)?.shareCents ?? 0,
+          currency
+        )
+      ),
+    ]);
+  }
   // Tip row
   rows.push(["Tip", "", "", formatMoneyRaw(tipCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.tipShareCents, currency))]);
   // Total row
-  const grandTotal = subtotal + taxCents + tipCents;
+  const grandTotal = subtotal + chargesTotal + tipCents;
   rows.push(["Total", "", "", formatMoneyRaw(grandTotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.totalCents, currency))]);
 
   return rows.map((r) => r.join(",")).join("\n");

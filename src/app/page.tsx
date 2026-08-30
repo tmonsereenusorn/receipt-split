@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceipt } from "@/lib/firestore";
-import { initialTaxTip } from "@/types";
 import { defaultCurrencyFromLocale } from "@/lib/currency";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
@@ -25,7 +24,8 @@ export default function LandingPage() {
         restaurantName: result.restaurantName,
         ocrText: result.ocrText,
         currency: result.currency,
-        ...(result.taxTip && { taxTip: { ...initialTaxTip, ...result.taxTip } }),
+        charges: result.charges,
+        ...(result.tip && { tip: result.tip }),
       });
       router.push(`/receipt/${id}`);
     } catch {

@@ -58,17 +58,17 @@ export default function ReceiptPageClient({ id }: { id: string }) {
 
   const breakdowns =
     hasItems && hasPeople
-      ? calculateBreakdowns(receipt.items, receipt.people, receipt.taxTip)
+      ? calculateBreakdowns(receipt.items, receipt.people, receipt.charges, receipt.tip)
       : [];
 
   const shareText =
     breakdowns.length > 0
-      ? generateShareText(receipt.items, receipt.taxTip, breakdowns, receipt.currency)
+      ? generateShareText(receipt.items, receipt.charges, receipt.tip, breakdowns, receipt.currency)
       : "";
 
   const csvText =
     breakdowns.length > 0
-      ? generateCsv(receipt.items, receipt.taxTip, breakdowns, receipt.currency)
+      ? generateCsv(receipt.items, receipt.charges, receipt.tip, breakdowns, receipt.currency)
       : "";
 
   const unassignedCount = receipt.items.filter(
@@ -136,9 +136,13 @@ export default function ReceiptPageClient({ id }: { id: string }) {
         <div onClick={e => e.stopPropagation()}>
           <TotalsSection
             items={receipt.items}
-            taxTip={receipt.taxTip}
+            charges={receipt.charges}
+            tip={receipt.tip}
             currency={receipt.currency}
-            onChange={receipt.setTaxTip}
+            onChangeTip={receipt.setTip}
+            onUpdateCharge={receipt.updateCharge}
+            onDeleteCharge={receipt.deleteCharge}
+            onAddCharge={receipt.addCharge}
             collapseKey={collapseKey}
             onRowExpand={() => setExpandedItemId(null)}
           />

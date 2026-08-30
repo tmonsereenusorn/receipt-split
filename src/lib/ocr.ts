@@ -1,6 +1,7 @@
 import { prepareImageBase64 } from "./image";
 import type { ExtractionFailureCode } from "./receiptExtraction";
 import type { ReceiptItem } from "@/types";
+import type { ExtractedCharge } from "./receiptExtraction";
 
 /**
  * An OCR failure that carries the route's discriminated failure code, so the UI
@@ -19,7 +20,7 @@ export class OcrError extends Error {
 export interface OcrResult {
   restaurantName: string | null;
   items: ReceiptItem[];
-  taxCents: number | null;
+  charges: ExtractedCharge[];
   tipCents: number | null;
   currency: string;
 }
@@ -54,7 +55,7 @@ export async function recognizeImage(image: File | string): Promise<OcrResult> {
   return {
     restaurantName: data.restaurantName ?? null,
     items: Array.isArray(data.items) ? data.items : [],
-    taxCents: typeof data.taxCents === "number" ? data.taxCents : null,
+    charges: Array.isArray(data.charges) ? data.charges : [],
     tipCents: typeof data.tipCents === "number" ? data.tipCents : null,
     currency: typeof data.currency === "string" ? data.currency : "USD",
   };

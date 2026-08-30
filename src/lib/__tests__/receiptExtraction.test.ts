@@ -4,7 +4,7 @@ import { interpretExtraction } from "../receiptExtraction";
 const VALID = JSON.stringify({
   restaurantName: "The Garden Bistro",
   items: [{ name: "Latte", quantity: 1, priceCents: 450 }],
-  taxCents: 40,
+  charges: [{ label: "Tax", amountCents: 40 }],
   tipCents: null,
   currency: "USD",
 });
@@ -19,7 +19,7 @@ describe("interpretExtraction", () => {
     expect(result.data.items).toEqual([
       { name: "Latte", quantity: 1, priceCents: 450 },
     ]);
-    expect(result.data.taxCents).toBe(40);
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
     expect(result.data.currency).toBe("USD");
   });
 
@@ -69,7 +69,7 @@ describe("interpretExtraction", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.items).toHaveLength(1);
-    expect(result.data.taxCents).toBe(40);
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
   });
 
   it("reports unreadable for a JSON object that is not a receipt", () => {
@@ -160,5 +160,143 @@ describe("interpretExtraction", () => {
     expect(truncated.message).not.toBe(unreadable.message);
     expect(truncated.message.length).toBeGreaterThan(0);
     expect(unreadable.message.length).toBeGreaterThan(0);
+  });
+});
+
+describe("interpretExtraction charges", () => {
+  it("parses charges with labels preserved verbatim", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Service Charge 18%","amountCents":1105}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([
+      { label: "Service Charge 18%", amountCents: 1105 },
+    ]);
+  });
+
+  it("keeps multiple charges in receipt order", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Tax","amountCents":537},{"label":"Bag Fee","amountCents":10}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges.map((c) => c.label)).toEqual(["Tax", "Bag Fee"]);
+  });
+
+  it("trims surrounding whitespace from a label", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"  Tax  ","amountCents":537}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges[0].label).toBe("Tax");
+  });
+
+  it("rounds a fractional charge amount", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Tax","amountCents":536.8}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges[0].amountCents).toBe(537);
+  });
+
+  it("treats an absent charges key as no charges", () => {
+    const result = interpretExtraction("end_turn", '{"items":[],"currency":"USD"}');
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([]);
+  });
+
+  it("treats a non-array charges value as no charges without throwing", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":"none","currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([]);
+  });
+
+  it("omits a zero-amount charge rather than storing a $0.00 row", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Tax","amountCents":0}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([]);
+  });
+
+  it("keeps the scan when a charge is malformed, dropping only that charge", () => {
+    // `partial` is unrecoverable — the same photo reproduces it — so failing the
+    // whole scan over one bad charge would make that receipt permanently
+    // unscannable. A missing charge is visible and can be re-added by hand.
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[{"name":"Latte","quantity":1,"priceCents":450}],"charges":[{"label":"Tax","amountCents":40},{"label":"Bad","amountCents":"five"}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
+  });
+
+  it("drops a charge with no label but keeps the rest of the scan", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"amountCents":537},{"label":"Tax","amountCents":40}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
+  });
+
+  it("keeps a negative charge, because a discount is a real receipt line", () => {
+    // Dropping it would overstate the total — the wrong direction to be wrong in.
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Promo","amountCents":-500}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Promo", amountCents: -500 }]);
+  });
+
+  it("rejects an absurd charge magnitude in either direction", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Huge","amountCents":999999999999},{"label":"Tax","amountCents":40}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
+  });
+
+  it("still fails as partial when an ITEM is unusable", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[{"name":"Latte","quantity":1,"priceCents":450},{"name":"Bad"}],"charges":[],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("partial");
   });
 });

@@ -1,3 +1,5 @@
+import { isValidChargeAmount } from "./charges";
+
 /**
  * Interpreting the model's reply to a receipt-extraction request.
  *
@@ -11,10 +13,17 @@ export interface ExtractedItem {
   priceCents: number;
 }
 
+/** A non-item line that adds to the total: tax, service charge, any fee. */
+export interface ExtractedCharge {
+  /** Label as printed on the receipt */
+  label: string;
+  amountCents: number;
+}
+
 export interface ExtractedReceipt {
   restaurantName: string | null;
   items: ExtractedItem[];
-  taxCents: number | null;
+  charges: ExtractedCharge[];
   tipCents: number | null;
   currency: string;
 }
@@ -120,17 +129,48 @@ function parseAndValidate(text: string): ParseResult {
       priceCents: Math.round(item.priceCents),
     }));
 
-  const taxCents =
-    typeof parsed.taxCents === "number" && parsed.taxCents >= 0
-      ? Math.round(parsed.taxCents)
-      : null;
   const tipCents =
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0
       ? Math.round(parsed.tipCents)
       : null;
 
+  // A malformed charges value yields no charges rather than throwing: the
+  // receipt's items are still usable, and an absent key is the common case.
+  const rawCharges: unknown[] = Array.isArray(parsed.charges)
+    ? parsed.charges
+    : [];
+
+  const validCharges = rawCharges.filter(
+    (charge: unknown): charge is ExtractedCharge =>
+      typeof charge === "object" &&
+      charge !== null &&
+      typeof (charge as ExtractedCharge).label === "string" &&
+      (charge as ExtractedCharge).label.trim().length > 0 &&
+      typeof (charge as ExtractedCharge).amountCents === "number" &&
+      // Bounded in both directions: negatives are legitimate (discounts), but
+      // an unbounded one could drive the grand total below zero. Shares the
+      // storage layer's bound rather than repeating the number.
+      isValidChargeAmount((charge as ExtractedCharge).amountCents)
+  );
+
+  // Zero-amount charges are valid input but change nothing, so they are not
+  // kept — storing one would render a $0.00 row. Negative amounts ARE kept: a
+  // discount is a real receipt line, and dropping it would overstate the total.
+  const charges: ExtractedCharge[] = validCharges
+    .map((charge) => ({
+      label: charge.label.trim(),
+      amountCents: Math.round(charge.amountCents),
+    }))
+    .filter((charge) => charge.amountCents !== 0);
+
   return {
-    receipt: { restaurantName, items, taxCents, tipCents, currency },
+    receipt: { restaurantName, items, charges, tipCents, currency },
+    // Only unusable ITEMS make a scan partial. A malformed charge is dropped and
+    // the scan still succeeds: `partial` is unrecoverable — the same photo
+    // reproduces it on every retry (see interpretExtraction below) — so failing
+    // the whole scan over one bad charge line would make that receipt
+    // permanently unscannable. A missing charge is visible in the totals and can
+    // be re-added by hand; a failed scan cannot be recovered at all.
     dropped: parsed.items.length - items.length,
   };
 }

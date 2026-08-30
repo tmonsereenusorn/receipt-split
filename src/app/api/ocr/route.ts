@@ -7,27 +7,31 @@ import {
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-haiku-4-5-20251001";
 
-const EXTRACTION_PROMPT = `Extract line items, tax, tip, and currency from this receipt image. Return JSON only, no markdown.
+const EXTRACTION_PROMPT = `Extract line items, charges, tip, and currency from this receipt image. Return JSON only, no markdown.
 
 {
   "restaurantName": "string or null",
   "items": [
     { "name": "string", "quantity": number, "priceCents": number }
   ],
-  "taxCents": number or null,
+  "charges": [
+    { "label": "string", "amountCents": number }
+  ],
   "tipCents": number or null,
   "currency": "ISO 4217 code, e.g. USD, EUR, JPY"
 }
 
 Rules:
-- priceCents is the unit price in integer cents (e.g., $12.99 → 1299)
+- priceCents is the unit price in integer cents (e.g., $12.99 -> 1299)
 - Default quantity to 1 unless explicitly shown
-- Exclude tax, tip, subtotal, total, discounts, service charges from items
-- Exclude payment method lines, dates, addresses, phone numbers from items
-- taxCents: the tax amount in integer cents, or null if not found
-- tipCents: the tip/gratuity amount in integer cents, or null if not found
-- currency: the ISO 4217 currency code detected from the receipt (look for currency symbols like $, €, ¥, £, or text). Default to "USD" if unclear.
-- If no items found, return empty items array`;
+- items: only things ordered. Exclude every charge, subtotal, total, discount, payment method line, date, address, and phone number
+- charges: every non-item line that CHANGES the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, discounts, promotions, comps, and anything similar
+- label: copy the charge's wording from the receipt as printed, trimmed. Keep a printed percentage in the label (e.g. "Service Charge 18%"); do not convert it
+- amountCents: the charge's cash amount in integer cents. Use a NEGATIVE number for anything that reduces the total, such as a discount, promotion, or comp (e.g. a $4.31 promo -> -431)
+- Do not put subtotal or total in charges
+- tipCents: a tip or gratuity the diner chose or wrote in, in integer cents, or null if not found. A tip goes here, never in charges
+- currency: the ISO 4217 currency code detected from the receipt (look for symbols like $, EUR, ¥, £, or text). Default to "USD" if unclear
+- If no items found, return an empty items array; if no charges found, return an empty charges array`;
 
 /**
  * Every id for one receipt is minted in a single synchronous map, so Date.now()
@@ -175,7 +179,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     restaurantName: result.restaurantName,
     items,
-    taxCents: result.taxCents,
+    charges: result.charges,
     tipCents: result.tipCents,
     currency: result.currency,
   });
