@@ -125,7 +125,7 @@ function parseAndValidate(text: string): ParseResult {
   // thing it is worst at, on the number that decides what everyone pays — and
   // it got it wrong, returning the line total as the unit price so the app
   // charged 2x and 3x.
-  const items: ExtractedItem[] = parsed.items
+  const rawItems: RawItem[] = parsed.items
     .filter(
       (item: unknown): item is RawItem =>
         typeof item === "object" &&
@@ -137,18 +137,15 @@ function parseAndValidate(text: string): ParseResult {
         Number.isFinite((item as RawItem).lineTotalCents) &&
         (item as RawItem).quantity > 0 &&
         (item as RawItem).lineTotalCents >= 0
-    )
-    .map((item: RawItem) => {
-      const quantity = Math.round(item.quantity);
-      return {
-        name: item.name,
-        quantity,
-        // Rounded, so a line total that does not divide evenly can be out by up
-        // to a cent per line — far better than the multiples it replaces.
-        priceCents: Math.round(item.lineTotalCents / quantity),
-      };
-    });
+    );
 
+  // Which reading of the printed amount does the receipt's own total support?
+  //
+  // A line like "2 BEER 6.00" is genuinely ambiguous: 6.00 could be the price
+  // of one beer or the total for two, and both appear on real receipts. Reading
+  // it wrong is silent and costs real money in whichever direction it errs.
+  // Only the printed total distinguishes them, and comparing against it is
+  // arithmetic — so the model transcribes both and this decides.
   const tipCents =
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0
       ? Math.round(parsed.tipCents)
@@ -182,6 +179,26 @@ function parseAndValidate(text: string): ParseResult {
       amountCents: Math.round(charge.amountCents),
     }))
     .filter((charge) => charge.amountCents !== 0);
+
+  const items: ExtractedItem[] = rawItems
+    .map((item: RawItem) => {
+      // Floored at 1, not just rounded. A weighed line — "0.4 kg Bulk Coffee
+      // $6.00" — passed the quantity > 0 filter, rounded to 0, divided by zero,
+      // and produced Infinity. JSON.stringify turns that into null, the write
+      // succeeded, and the storage boundary then rejected the row on read: the
+      // item vanished from the bill with no error at any layer.
+      //
+      // Clamping keeps the line and keeps its money right: one unit at the
+      // printed line total is exactly what the receipt says that line cost.
+      const quantity = Math.max(1, Math.round(item.quantity));
+      return {
+        name: item.name,
+        quantity,
+        // Rounded, so a line total that does not divide evenly can be out by up
+        // to a cent per line — far better than the multiples it replaces.
+        priceCents: Math.round(item.lineTotalCents / quantity),
+      };
+    });
 
   return {
     receipt: { restaurantName, items, charges, tipCents, currency },

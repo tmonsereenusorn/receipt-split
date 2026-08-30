@@ -132,3 +132,38 @@ describe("storedFromItems", () => {
     expect(result.items).toEqual(items);
   });
 });
+
+describe("non-finite stored numbers", () => {
+  // typeof NaN === "number", so a poisoned value would pass a bare typeof check
+  // and make every total NaN. Nothing writes one today; this is the boundary's
+  // job regardless of who is upstream.
+  const base = {
+    itemOrder: ["a", "b"],
+    assignments: {},
+    tip: { cents: 0, isPercent: true, percent: 20 },
+  };
+
+  it("drops an item whose price is NaN", () => {
+    const doc = {
+      ...base,
+      items: {
+        a: { name: "a", quantity: 1, priceCents: NaN },
+        b: { name: "b", quantity: 1, priceCents: 100 },
+      },
+    };
+
+    expect(normalizeStoredReceipt(doc).items.map((i) => i.id)).toEqual(["b"]);
+  });
+
+  it("drops an item whose quantity is Infinity", () => {
+    const doc = {
+      ...base,
+      items: {
+        a: { name: "a", quantity: Infinity, priceCents: 100 },
+        b: { name: "b", quantity: 1, priceCents: 100 },
+      },
+    };
+
+    expect(normalizeStoredReceipt(doc).items.map((i) => i.id)).toEqual(["b"]);
+  });
+});

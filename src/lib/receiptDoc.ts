@@ -32,8 +32,10 @@ function isStoredItem(value: unknown): value is StoredItem {
     typeof value === "object" &&
     value !== null &&
     typeof (value as StoredItem).name === "string" &&
-    typeof (value as StoredItem).quantity === "number" &&
-    typeof (value as StoredItem).priceCents === "number"
+    // Finite, not merely "number": typeof NaN and typeof Infinity are both
+    // "number", and either would make every total involving this item NaN.
+    Number.isFinite((value as StoredItem).quantity) &&
+    Number.isFinite((value as StoredItem).priceCents)
   );
 }
 

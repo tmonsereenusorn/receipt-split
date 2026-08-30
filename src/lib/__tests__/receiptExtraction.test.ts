@@ -380,3 +380,67 @@ describe("line total to unit price", () => {
     expect(result.code).toBe("partial");
   });
 });
+
+describe("fractional quantities", () => {
+  const reply = (items: string) =>
+    `{"items":[${items}],"charges":[],"currency":"USD"}`;
+
+  it("keeps a weighed line rather than losing it", () => {
+    // "0.4 kg Bulk Coffee $6.00" is an ordinary receipt line. It used to pass
+    // the quantity > 0 filter, round to 0, divide by zero, and become Infinity —
+    // which JSON.stringify turns into null, which the storage boundary then
+    // rejects on read. The item vanished from the bill with no error anywhere.
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bulk Coffee","quantity":0.4,"lineTotalCents":600}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items).toEqual([
+      { name: "Bulk Coffee", quantity: 1, priceCents: 600 },
+    ]);
+  });
+
+  it("preserves the line total for any fractional quantity", () => {
+    // The receipt says the line cost $6.00; whatever we do to quantity, the
+    // line must still cost $6.00.
+    for (const quantity of [0.1, 0.4, 0.5, 0.9, 1.4]) {
+      const result = interpretExtraction(
+        "end_turn",
+        reply(`{"name":"Bulk","quantity":${quantity},"lineTotalCents":600}`)
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const item = result.data.items[0];
+      expect(item.quantity * item.priceCents).toBe(600);
+    }
+  });
+
+  it("never produces a non-finite price", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"A","quantity":0.4,"lineTotalCents":600},{"name":"B","quantity":2,"lineTotalCents":1000}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const item of result.data.items) {
+      expect(Number.isFinite(item.priceCents)).toBe(true);
+      expect(Number.isFinite(item.quantity)).toBe(true);
+    }
+  });
+
+  it("still drops a line with a genuinely unusable quantity", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bad","quantity":"two","lineTotalCents":600}')
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("partial");
+  });
+});
+
