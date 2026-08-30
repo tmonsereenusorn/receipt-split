@@ -10,7 +10,15 @@ import { isValidChargeAmount } from "./charges";
 export interface ExtractedItem {
   name: string;
   quantity: number;
+  /** Price of ONE unit, derived here from the printed line total. */
   priceCents: number;
+}
+
+/** An item line as the model transcribes it: the amount printed, not per unit. */
+interface RawItem {
+  name: string;
+  quantity: number;
+  lineTotalCents: number;
 }
 
 /** A non-item line that adds to the total: tax, service charge, any fee. */
@@ -112,22 +120,34 @@ function parseAndValidate(text: string): ParseResult {
       ? parsed.currency.toUpperCase()
       : "USD";
 
+  // The model transcribes the amount printed on the line; the division happens
+  // here. Asking a model to derive a unit price is asking it to do the one
+  // thing it is worst at, on the number that decides what everyone pays — and
+  // it got it wrong, returning the line total as the unit price so the app
+  // charged 2x and 3x.
   const items: ExtractedItem[] = parsed.items
     .filter(
-      (item: unknown): item is ExtractedItem =>
+      (item: unknown): item is RawItem =>
         typeof item === "object" &&
         item !== null &&
-        typeof (item as ExtractedItem).name === "string" &&
-        typeof (item as ExtractedItem).quantity === "number" &&
-        typeof (item as ExtractedItem).priceCents === "number" &&
-        (item as ExtractedItem).quantity > 0 &&
-        (item as ExtractedItem).priceCents >= 0
+        typeof (item as RawItem).name === "string" &&
+        typeof (item as RawItem).quantity === "number" &&
+        typeof (item as RawItem).lineTotalCents === "number" &&
+        Number.isFinite((item as RawItem).quantity) &&
+        Number.isFinite((item as RawItem).lineTotalCents) &&
+        (item as RawItem).quantity > 0 &&
+        (item as RawItem).lineTotalCents >= 0
     )
-    .map((item: ExtractedItem) => ({
-      name: item.name,
-      quantity: Math.round(item.quantity),
-      priceCents: Math.round(item.priceCents),
-    }));
+    .map((item: RawItem) => {
+      const quantity = Math.round(item.quantity);
+      return {
+        name: item.name,
+        quantity,
+        // Rounded, so a line total that does not divide evenly can be out by up
+        // to a cent per line — far better than the multiples it replaces.
+        priceCents: Math.round(item.lineTotalCents / quantity),
+      };
+    });
 
   const tipCents =
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0

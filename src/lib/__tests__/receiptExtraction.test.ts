@@ -3,7 +3,7 @@ import { interpretExtraction } from "../receiptExtraction";
 
 const VALID = JSON.stringify({
   restaurantName: "The Garden Bistro",
-  items: [{ name: "Latte", quantity: 1, priceCents: 450 }],
+  items: [{ name: "Latte", quantity: 1, lineTotalCents: 450 }],
   charges: [{ label: "Tax", amountCents: 40 }],
   tipCents: null,
   currency: "USD",
@@ -246,7 +246,7 @@ describe("interpretExtraction charges", () => {
     // unscannable. A missing charge is visible and can be re-added by hand.
     const result = interpretExtraction(
       "end_turn",
-      '{"items":[{"name":"Latte","quantity":1,"priceCents":450}],"charges":[{"label":"Tax","amountCents":40},{"label":"Bad","amountCents":"five"}],"currency":"USD"}'
+      '{"items":[{"name":"Latte","quantity":1,"lineTotalCents":450}],"charges":[{"label":"Tax","amountCents":40},{"label":"Bad","amountCents":"five"}],"currency":"USD"}'
     );
 
     expect(result.ok).toBe(true);
@@ -292,7 +292,87 @@ describe("interpretExtraction charges", () => {
   it("still fails as partial when an ITEM is unusable", () => {
     const result = interpretExtraction(
       "end_turn",
-      '{"items":[{"name":"Latte","quantity":1,"priceCents":450},{"name":"Bad"}],"charges":[],"currency":"USD"}'
+      '{"items":[{"name":"Latte","quantity":1,"lineTotalCents":450},{"name":"Bad"}],"charges":[],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("partial");
+  });
+});
+
+describe("line total to unit price", () => {
+  const reply = (items: string) =>
+    `{"items":[${items}],"charges":[],"currency":"USD"}`;
+
+  it("divides the printed line total by the quantity", () => {
+    // The model transcribes what is printed; the arithmetic is done here, where
+    // it is exact. Asking a model to divide is asking it to do the one thing it
+    // is worst at, on the number that decides what people pay.
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Craft Beer","quantity":2,"lineTotalCents":1200}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0]).toEqual({
+      name: "Craft Beer",
+      quantity: 2,
+      priceCents: 600,
+    });
+  });
+
+  it("rounds to the nearest cent when the total does not divide evenly", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Fish Taco","quantity":3,"lineTotalCents":1000}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(333);
+  });
+
+  it("leaves a single-quantity line alone", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"House Salad","quantity":1,"lineTotalCents":925}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(925);
+  });
+
+  it("handles a free item", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Comped Dessert","quantity":2,"lineTotalCents":0}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(0);
+  });
+
+  it("drops a line with no usable quantity rather than dividing by zero", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bad","quantity":0,"lineTotalCents":500},{"name":"Good","quantity":1,"lineTotalCents":100}')
+    );
+
+    // A dropped item still makes the scan partial — unlike a charge, a missing
+    // dish cannot be split.
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("partial");
+  });
+
+  it("drops a line with a negative total", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bad","quantity":1,"lineTotalCents":-500}')
     );
 
     expect(result.ok).toBe(false);
