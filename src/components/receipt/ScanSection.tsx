@@ -25,29 +25,39 @@ export interface ScanResult {
 }
 
 interface ScanSectionProps {
-  onScanResult: (result: ScanResult) => void;
+  /**
+   * Fired the moment a photo is captured, handing up the in-flight scan so the
+   * setup step can render while it runs. The promise resolves to null if the
+   * scan fails; `scanError` on the hook carries the reason.
+   */
+  onScanStarted: (promise: Promise<ScanResult | null>, imageDataUrl: string) => void;
   onSkip: () => void;
 }
 
-export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
+export function ScanSection({ onScanStarted, onSkip }: ScanSectionProps) {
   const ocr = useOcr();
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 
-  async function handleCapture(file: File, dataUrl: string) {
+  function handleCapture(file: File, dataUrl: string) {
     setImageDataUrl(dataUrl);
 
-    const result = await ocr.recognize(file);
-    if (result) {
-      onScanResult({
-        items: result.items,
-        restaurantName: result.restaurantName,
-        ocrText: null,
-        imageDataUrl: dataUrl,
-        charges: chargesFromExtraction(result) ?? [],
-        parsedTipCents: result.tipCents,
-        currency: result.currency,
-      });
-    }
+    // Started, not awaited: the caller shows the setup step immediately and
+    // resolves this when the user continues.
+    const promise = ocr.recognize(file).then((result) =>
+      result
+        ? {
+            items: result.items,
+            restaurantName: result.restaurantName,
+            ocrText: null,
+            imageDataUrl: dataUrl,
+            charges: chargesFromExtraction(result) ?? [],
+            parsedTipCents: result.tipCents,
+            currency: result.currency,
+          }
+        : null
+    );
+
+    onScanStarted(promise, dataUrl);
   }
 
   function handleRetake() {
