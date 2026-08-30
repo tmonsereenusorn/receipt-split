@@ -380,3 +380,143 @@ describe("line total to unit price", () => {
     expect(result.code).toBe("partial");
   });
 });
+
+describe("fractional quantities", () => {
+  const reply = (items: string) =>
+    `{"items":[${items}],"charges":[],"currency":"USD"}`;
+
+  it("keeps a weighed line rather than losing it", () => {
+    // "0.4 kg Bulk Coffee $6.00" is an ordinary receipt line. It used to pass
+    // the quantity > 0 filter, round to 0, divide by zero, and become Infinity —
+    // which JSON.stringify turns into null, which the storage boundary then
+    // rejects on read. The item vanished from the bill with no error anywhere.
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bulk Coffee","quantity":0.4,"lineTotalCents":600}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items).toEqual([
+      { name: "Bulk Coffee", quantity: 1, priceCents: 600 },
+    ]);
+  });
+
+  it("preserves the line total for any fractional quantity", () => {
+    // The receipt says the line cost $6.00; whatever we do to quantity, the
+    // line must still cost $6.00.
+    for (const quantity of [0.1, 0.4, 0.5, 0.9, 1.4]) {
+      const result = interpretExtraction(
+        "end_turn",
+        reply(`{"name":"Bulk","quantity":${quantity},"lineTotalCents":600}`)
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const item = result.data.items[0];
+      expect(item.quantity * item.priceCents).toBe(600);
+    }
+  });
+
+  it("never produces a non-finite price", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"A","quantity":0.4,"lineTotalCents":600},{"name":"B","quantity":2,"lineTotalCents":1000}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const item of result.data.items) {
+      expect(Number.isFinite(item.priceCents)).toBe(true);
+      expect(Number.isFinite(item.quantity)).toBe(true);
+    }
+  });
+
+  it("still drops a line with a genuinely unusable quantity", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Bad","quantity":"two","lineTotalCents":600}')
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("partial");
+  });
+});
+
+describe("unit price vs line total, reconciled against the printed total", () => {
+  const reply = (items: string, extra = "") =>
+    `{"items":[${items}],"charges":[],"currency":"USD"${extra}}`;
+
+  it("reads the amount as a unit price when that is what reconciles", () => {
+    // "2 BEER 6.00 / 3 TACO 4.50 / 1 SALAD 9.25, TOTAL 34.75". Read as line
+    // totals the receipt sums to 19.75, so the printed amounts must be per
+    // unit. The model transcribes; this decides, because it is arithmetic.
+    const result = interpretExtraction(
+      "end_turn",
+      reply(
+        '{"name":"Beer","quantity":2,"lineTotalCents":600},' +
+          '{"name":"Taco","quantity":3,"lineTotalCents":450},' +
+          '{"name":"Salad","quantity":1,"lineTotalCents":925}',
+        ',"itemsTotalCents":3475'
+      )
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items.map((i) => i.priceCents)).toEqual([600, 450, 925]);
+  });
+
+  it("reads the amount as a line total when that is what reconciles", () => {
+    // Same shape, but the printed total says the amounts are line totals.
+    const result = interpretExtraction(
+      "end_turn",
+      reply(
+        '{"name":"Beer","quantity":2,"lineTotalCents":1200},' +
+          '{"name":"Taco","quantity":3,"lineTotalCents":1350}',
+        ',"itemsTotalCents":2550'
+      )
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items.map((i) => i.priceCents)).toEqual([600, 450]);
+  });
+
+  it("treats the amount as a line total when no total is printed", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Beer","quantity":2,"lineTotalCents":1200}')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(600);
+  });
+
+  it("is unaffected when every line is a single unit", () => {
+    // Both readings are identical at quantity 1, so the total cannot and need
+    // not distinguish them.
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Salad","quantity":1,"lineTotalCents":925}', ',"itemsTotalCents":925')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(925);
+  });
+
+  it("keeps the line-total reading when the printed total matches neither", () => {
+    // A misread total must not flip prices; ambiguity falls back to the
+    // documented default rather than guessing.
+    const result = interpretExtraction(
+      "end_turn",
+      reply('{"name":"Beer","quantity":2,"lineTotalCents":1200}', ',"itemsTotalCents":9999')
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items[0].priceCents).toBe(600);
+  });
+});
