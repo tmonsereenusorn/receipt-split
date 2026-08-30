@@ -19,6 +19,9 @@ export interface ScanResult {
   currency: string;
 }
 
+/** The scanner module itself failed to load, as opposed to the scan failing. */
+class ScanChunkError extends Error {}
+
 /**
  * The outcome of a scan, carrying the failure reason rather than just `null`.
  *
@@ -51,6 +54,13 @@ export function ScanSection({ onScanStarted, onSkip }: ScanSectionProps) {
     // resolves this when the user continues. `recognizeImage` stays lazily
     // imported to keep it out of the landing page's initial bundle.
     const promise: Promise<ScanOutcome> = import("@/lib/ocr")
+      // The import is caught separately from the request. A chunk-load failure
+      // — flaky network, or a deploy that moved the chunk — rejects with
+      // "Failed to fetch dynamically imported module: .../chunks/….js", which is
+      // not copy written for a person to read.
+      .catch(() => {
+        throw new ScanChunkError();
+      })
       .then(({ recognizeImage }) => recognizeImage(file))
       .then((result) => ({
         ok: true as const,
@@ -66,7 +76,12 @@ export function ScanSection({ onScanStarted, onSkip }: ScanSectionProps) {
       }))
       .catch((err: unknown) => ({
         ok: false as const,
-        message: err instanceof Error ? err.message : "OCR failed",
+        message:
+          err instanceof ScanChunkError
+            ? "Couldn't load the scanner. Check your connection and try again."
+            : err instanceof Error
+              ? err.message
+              : "Couldn't read that receipt. Try another photo.",
       }));
 
     onScanStarted(promise);

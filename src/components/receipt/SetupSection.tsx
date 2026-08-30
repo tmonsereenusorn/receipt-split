@@ -28,13 +28,18 @@ function PenAnswer({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      aria-label={label}
-      className="group flex flex-col items-center gap-1 px-2 py-1"
-    >
+    // A real radio in a real fieldset, visually hidden behind the drawn mark.
+    // Reimplementing radio semantics on buttons would mean re-deriving grouping,
+    // the group label, arrow-key movement, and required-ness by hand.
+    <label className="flex cursor-pointer flex-col items-center gap-1 px-2 py-1">
+      <input
+        type="radio"
+        name="tip-on-bill"
+        checked={selected}
+        onChange={onSelect}
+        required
+        className="peer sr-only"
+      />
       <svg
         viewBox="0 0 56 56"
         className="h-14 w-14 overflow-visible"
@@ -66,13 +71,13 @@ function PenAnswer({
       </svg>
 
       <span
-        className={`font-receipt text-base uppercase ${
+        className={`font-receipt text-base uppercase peer-focus-visible:underline ${
           selected ? "text-ink" : "text-ink-muted"
         }`}
       >
         {label}
       </span>
-    </button>
+    </label>
   );
 }
 
@@ -231,10 +236,10 @@ export function SetupSection({
         </button>
       </div>
 
-      <div className="mt-6">
-        <p className="font-receipt text-lg uppercase text-ink">
+      <fieldset className="mt-6">
+        <legend className="font-receipt text-lg uppercase text-ink">
           Was the tip on the bill?
-        </p>
+        </legend>
 
         <div className="mt-1 flex items-start gap-4">
           <PenAnswer
@@ -279,7 +284,7 @@ export function SetupSection({
             />
           </div>
         )}
-      </div>
+      </fieldset>
 
       <button
         type="button"
