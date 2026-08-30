@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { countAssignedItems } from "@/lib/people";
 import { Person, ReceiptItem } from "@/types";
 import { Section } from "./Section";
 
@@ -17,6 +18,10 @@ interface PeopleSectionProps {
 export function PeopleSection({ people, items, activePerson, onSelectPerson, onAdd, onUpdate, onDelete }: PeopleSectionProps) {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Holds WHICH person is being confirmed, not a boolean. Switching selection
+  // then invalidates it by comparison, so a pending "really?" can never be
+  // answered for a different person — no effect and no remount needed.
+  const [confirmingFor, setConfirmingFor] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
   function handleAdd(e: React.FormEvent) {
@@ -40,6 +45,11 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
   }
 
   const activePeople = people.find((p) => p.id === activePerson);
+  const confirmingRemove =
+    activePeople !== undefined && confirmingFor === activePeople.id;
+  const assignedCount = activePeople
+    ? countAssignedItems(items, activePeople.id)
+    : 0;
 
   return (
     <Section>
@@ -110,24 +120,6 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
                       </span>
                     )}
                   </button>
-                  <div className="absolute -top-1 -right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); startEdit(person); }}
-                      className="text-ink-faded hover:text-ink text-xs transition-colors"
-                      aria-label={`Edit ${person.name}`}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onDelete(person.id); }}
-                      className="text-ink-faded hover:text-accent text-xs transition-colors"
-                      aria-label={`Remove ${person.name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
                 </>
               )}
             </div>
@@ -169,12 +161,66 @@ export function PeopleSection({ people, items, activePerson, onSelectPerson, onA
         ) : null}
       </div>
       {activePeople && (
-        <p
-          className="mt-2 text-center font-hand text-lg"
-          style={{ color: activePeople.color }}
-        >
-          tap items to assign to {activePeople.name}
-        </p>
+        <div className="mt-2 text-center">
+          <p className="font-hand text-lg" style={{ color: activePeople.color }}>
+            tap items to assign to {activePeople.name}
+          </p>
+
+          {/* Per-person actions live here rather than on the pill: this line
+              already responds to selection, sits outside the tap-to-assign
+              path, and gives text-sized targets instead of glyphs pinned to a
+              40px circle — which on touch were invisible but still tappable. */}
+          <div className="no-print mt-1 flex items-center justify-center gap-1 font-receipt text-base">
+            {confirmingRemove ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDelete(activePeople.id);
+                    setConfirmingFor(null);
+                  }}
+                  className="px-3 py-2 text-accent underline"
+                >
+                  {assignedCount > 0
+                    ? `really? removes ${activePeople.name} from ${assignedCount} item${
+                        assignedCount === 1 ? "" : "s"
+                      }`
+                    : "really?"}
+                </button>
+                <span className="text-ink-faded" aria-hidden="true">
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingFor(null)}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-ink"
+                >
+                  cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => startEdit(activePeople)}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-ink"
+                >
+                  rename
+                </button>
+                <span className="text-ink-faded" aria-hidden="true">
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingFor(activePeople.id)}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-accent"
+                >
+                  remove
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
       {people.length > 0 && items.length > 0 && !activePerson &&
         items.some((item) => item.assignedTo.length === 0) && (
