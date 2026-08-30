@@ -1,4 +1,4 @@
-import { normalizeReceiptMoney } from "./charges";
+import { isValidChargeAmount, normalizeReceiptMoney } from "./charges";
 import {
   doc,
   addDoc,
@@ -246,6 +246,9 @@ export async function fsAddCharge(id: string, charge: ReceiptCharge) {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
+    if (!isValidChargeAmount(charge.amountCents)) {
+      throw new Error("Charge amount out of range");
+    }
     const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
     tx.update(ref, { charges: [...charges, charge], tip });
   });
@@ -260,6 +263,15 @@ export async function fsUpdateCharge(
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
+    // Validated on write as well as read: an out-of-range amount written here
+    // would be silently dropped by every later read, so the row would vanish
+    // with no message while the bad value stayed in the document.
+    if (
+      updates.amountCents !== undefined &&
+      !isValidChargeAmount(updates.amountCents)
+    ) {
+      throw new Error("Charge amount out of range");
+    }
     const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
     tx.update(ref, {
       charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),

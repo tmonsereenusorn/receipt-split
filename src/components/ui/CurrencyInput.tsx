@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { parseCurrencyInput } from "@/lib/currencyInput";
 
 interface CurrencyInputProps {
   cents: number;
   onChangeCents: (cents: number) => void;
   className?: string;
+  /**
+   * Accept negative amounts. Opt-in per field: a charge may be a discount, but
+   * a negative tip is meaningless.
+   */
+  allowNegative?: boolean;
 }
 
 /**
@@ -16,6 +22,7 @@ export function CurrencyInput({
   cents,
   onChangeCents,
   className,
+  allowNegative = false,
 }: CurrencyInputProps) {
   const [localValue, setLocalValue] = useState((cents / 100).toFixed(2));
   const isFocused = useRef(false);
@@ -25,11 +32,10 @@ export function CurrencyInput({
   }, [cents]);
 
   function commit() {
-    const parsed = parseFloat(localValue);
-    if (isNaN(parsed) || parsed < 0) {
+    const { cents: newCents } = parseCurrencyInput(localValue, allowNegative);
+    if (newCents === null) {
       setLocalValue((cents / 100).toFixed(2));
     } else {
-      const newCents = Math.round(parsed * 100);
       onChangeCents(newCents);
       setLocalValue((newCents / 100).toFixed(2));
     }
@@ -38,7 +44,9 @@ export function CurrencyInput({
   return (
     <input
       type="text"
-      inputMode="decimal"
+      // A decimal keypad has no minus key on most mobile keyboards, so a field
+      // that accepts discounts needs the full keyboard to be usable at all.
+      inputMode={allowNegative ? "text" : "decimal"}
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onFocus={(e) => {

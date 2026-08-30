@@ -111,6 +111,7 @@ function ChargeRow({
             <CurrencyInput
               cents={charge.amountCents}
               onChangeCents={(cents) => onUpdate?.({ amountCents: cents })}
+              allowNegative
               className="w-20 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
             />
             <button

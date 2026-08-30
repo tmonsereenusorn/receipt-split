@@ -52,6 +52,14 @@ export function makeChargeId(label: string, index?: number): string {
  */
 const MAX_CHARGE_MAGNITUDE_CENTS = 100_000_000;
 
+/** True if an amount is finite and within the magnitude bound. */
+export function isValidChargeAmount(amountCents: number): boolean {
+  return (
+    Number.isFinite(amountCents) &&
+    Math.abs(amountCents) <= MAX_CHARGE_MAGNITUDE_CENTS
+  );
+}
+
 function isStoredCharge(value: unknown): value is ReceiptCharge {
   return (
     typeof value === "object" &&
@@ -60,8 +68,7 @@ function isStoredCharge(value: unknown): value is ReceiptCharge {
     typeof (value as ReceiptCharge).label === "string" &&
     (value as ReceiptCharge).label.trim().length > 0 &&
     typeof (value as ReceiptCharge).amountCents === "number" &&
-    Number.isFinite((value as ReceiptCharge).amountCents) &&
-    Math.abs((value as ReceiptCharge).amountCents) <= MAX_CHARGE_MAGNITUDE_CENTS
+    isValidChargeAmount((value as ReceiptCharge).amountCents)
   );
 }
 

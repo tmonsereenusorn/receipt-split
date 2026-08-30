@@ -85,22 +85,33 @@ The prompt returns charges as a list and the tip separately:
 
 Rules:
 
-- A charge is any non-item monetary line that **adds to the total**: tax, service charge, service
-  fee, delivery fee, bag fee, surcharges, auto-gratuity.
+- A charge is any non-item monetary line that **changes the total**: tax, service charge, service
+  fee, delivery fee, bag fee, surcharges, auto-gratuity, and discounts or comps (negative).
 - `label` is copied verbatim from the receipt, trimmed, with surrounding punctuation removed.
   A printed percentage stays in the label (`"Service Charge 18%"`) — it is not parsed out.
-- `amountCents` is the charge's cash amount in integer cents.
-- Exclude subtotal, total, discounts, payment-method lines, dates, addresses, phone numbers.
+- `amountCents` is the charge's cash amount in integer cents. It is **negative** for
+  anything that reduces the total — a discount, promotion, or comp. A discount is a real
+  receipt line, and omitting it would make the app's total exceed the printed total.
+  Magnitudes are bounded in both directions so a corrupt value cannot drive the grand
+  total below zero.
+- Exclude subtotal, total, payment-method lines, dates, addresses, phone numbers.
 - A diner-chosen tip or gratuity line goes in `tipCents`, not in `charges`.
 - No charges found → empty array.
 
 No fee vocabulary is enumerated in code, so a new wording needs no change anywhere.
 
-**Validation and the no-silent-loss rule.** Each charge needs a non-empty string `label` and a
-numeric `amountCents >= 0`. Charges failing validation are dropped, and — this is the important
-part — a dropped charge counts toward the existing `dropped` tally that `interpretExtraction`
-turns into a `partial` failure. Silently discarding a charge undercounts the total, which is the
-exact failure this whole change exists to fix; it must surface, not vanish.
+**Validation.** Each charge needs a non-empty string `label` and a finite `amountCents` within
+the magnitude bound. A charge failing validation is **dropped, and the scan still succeeds.**
+
+This reverses an earlier decision in this document, which made a bad charge fail the scan as
+`partial` on the grounds that silently dropping one undercounts the total. Review showed that
+trade to be the wrong way round: `partial` is unrecoverable — the same photo reproduces it on
+every retry — so one malformed charge line made a receipt *permanently unscannable*, while a
+missing charge is visible in the totals and can be re-added by hand. Unusable **items** still
+fail the scan hard, because a receipt missing dishes cannot be split at all.
+
+Known gap: a dropped charge currently produces no user-visible signal. Closing it properly needs
+a "succeeded with warnings" state, which the five-code failure taxonomy has no room for.
 
 Zero-amount charges are valid input but are not stored: they add nothing and would render a
 `$0.00` row.
@@ -135,7 +146,7 @@ boundaries"). No migration job, no write on read.
 
 | Stored | Becomes |
 | --- | --- |
-| `charges` + `tip` present | used as-is, with each charge defaulted for missing fields |
+| `charges` + `tip` present | kept, with any malformed charge **dropped** (a charge is not repairable — an unparseable amount has no safe default) |
 | `taxTip.taxCents > 0` (cash mode) | a charge `{ label: "Tax", amountCents: taxCents }` |
 | `taxTip.taxIsPercent` with `taxPercent > 0` | a charge `{ label: "Tax", amountCents: round(subtotal × taxPercent / 100) }` |
 | `taxTip.serviceCents > 0` | a charge `{ label: "Service Charge", amountCents: serviceCents }` |
@@ -178,8 +189,11 @@ TDD throughout: test first, watched to fail, then implementation.
 - **calculator** — per-charge proportional distribution; shares sum exactly per charge
   (remainder to last person); zero charges changes nothing; tip computed on subtotal only, never
   compounding on charges; empty charge list
-- **extraction** — charges parsed with labels preserved verbatim; invalid charge increments
-  `dropped` and yields `partial`; zero-amount charge not stored; absent `charges` key yields `[]`
+- **extraction** — charges parsed with labels preserved verbatim; a malformed charge is dropped
+  while the scan succeeds; an unusable item still yields `partial`; a negative amount is kept; an
+  out-of-bound magnitude is rejected; zero-amount charge not stored; absent `charges` key → `[]`
+- **currency input** — `parseCurrencyInput` accepts a negative only when the field opts in, so a
+  discount can be typed and corrected while a negative tip still cannot
 - **migration** — legacy cash tax, legacy percent tax (exact cash conversion), legacy service
   charge, legacy tip carried through, zero-valued legacy fields producing no charge, a document
   already in the new shape passing through unchanged, and a null/absent map yielding defaults

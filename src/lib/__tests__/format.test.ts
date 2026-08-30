@@ -135,3 +135,29 @@ describe("generateCsv", () => {
     );
   });
 });
+
+describe("negative charges in exports", () => {
+  const charges = [
+    { id: "c1", label: "Tax", amountCents: 800 },
+    { id: "c2", label: "Promo", amountCents: -1000 },
+  ];
+
+  it("renders a discount in the share text rather than hiding it", () => {
+    const { items, breakdowns } = fixture(charges);
+
+    const text = generateShareText(items, charges, NO_TIP, breakdowns, "USD");
+
+    expect(text).toContain("Promo: -$10.00");
+    expect(text).toContain("\u2022 Promo: -$6.00");
+    expect(text).toContain("Total: $98.00");
+  });
+
+  it("renders a discount row in the CSV with negative shares", () => {
+    const { items, breakdowns } = fixture(charges);
+
+    const csv = generateCsv(items, charges, NO_TIP, breakdowns, "USD");
+
+    expect(csv).toContain('"Promo",,,-10.00,-6.00,-4.00');
+    expect(csv).toContain("Total,,,98.00");
+  });
+});

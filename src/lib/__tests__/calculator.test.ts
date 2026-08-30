@@ -253,4 +253,44 @@ describe("calculateBreakdowns", () => {
     expect(b.tipShareCents).toBe(0);
     expect(b.totalCents).toBe(0);
   });
+
+  it("distributes a negative charge proportionally", () => {
+    // A discount is a real receipt line stored as a negative charge; its shares
+    // must reduce each person's total rather than being ignored or flipped.
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const charges = [charge("c1", "Promo", -1000)];
+
+    const [b1, b2] = calculateBreakdowns(items, people, charges, noTip);
+
+    expect(b1.chargeShares[0].shareCents).toBe(-600);
+    expect(b2.chargeShares[0].shareCents).toBe(-400);
+    expect(b1.totalCents).toBe(5400);
+    expect(b2.totalCents).toBe(3600);
+  });
+
+  it("makes a negative charge's shares sum exactly to the charge", () => {
+    const items = [
+      makeItem("a", 3333, ["p1"]),
+      makeItem("b", 3333, ["p2"]),
+      makeItem("c", 3334, ["p3"]),
+    ];
+    const people = [makePerson("p1"), makePerson("p2"), makePerson("p3")];
+    const charges = [charge("c1", "Promo", -431)];
+
+    const breakdowns = calculateBreakdowns(items, people, charges, noTip);
+    const summed = breakdowns.reduce((s, b) => s + b.chargeShares[0].shareCents, 0);
+
+    expect(summed).toBe(-431);
+  });
+
+  it("nets a discount against other charges in the total", () => {
+    const items = [makeItem("a", 10000, ["p1"])];
+    const people = [makePerson("p1")];
+    const charges = [charge("c1", "Tax", 800), charge("c2", "Promo", -1000)];
+
+    const [b] = calculateBreakdowns(items, people, charges, noTip);
+
+    expect(b.totalCents).toBe(9800);
+  });
 });
