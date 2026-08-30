@@ -1,12 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useOcr } from "@/hooks/useOcr";
 import { ImageCapture } from "@/components/scan/ImageCapture";
-import { ImagePreview } from "@/components/scan/ImagePreview";
-import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
-import { formatMoney } from "@/lib/currency";
 import type { ReceiptCharge, ReceiptItem } from "@/types";
 import { chargesFromExtraction } from "@/lib/charges";
 
@@ -24,92 +19,72 @@ export interface ScanResult {
   currency: string;
 }
 
+/**
+ * The outcome of a scan, carrying the failure reason rather than just `null`.
+ *
+ * The route distinguishes seven failures — truncated, unreadable, empty,
+ * refused, partial, unconfigured, timeout — and each carries advice specific to
+ * it ("too many items, split it into two photos" is a different remedy from
+ * "try a clearer photo"). Collapsing them to one message sends the user off to
+ * re-shoot a receipt that will fail identically.
+ */
+export type ScanOutcome =
+  | { ok: true; result: ScanResult }
+  | { ok: false; message: string };
+
 interface ScanSectionProps {
   /**
    * Fired the moment a photo is captured, handing up the in-flight scan so the
-   * setup step can render while it runs. The promise resolves to null if the
-   * scan fails; `scanError` on the hook carries the reason.
+   * setup step can render while it runs.
    */
-  onScanStarted: (promise: Promise<ScanResult | null>, imageDataUrl: string) => void;
+  onScanStarted: (promise: Promise<ScanOutcome>) => void;
   onSkip: () => void;
 }
 
+/**
+ * Capture only. Once a photo is taken the parent switches to the setup step and
+ * unmounts this, so progress, preview, and result UI would never be seen.
+ */
 export function ScanSection({ onScanStarted, onSkip }: ScanSectionProps) {
-  const ocr = useOcr();
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-
   function handleCapture(file: File, dataUrl: string) {
-    setImageDataUrl(dataUrl);
-
     // Started, not awaited: the caller shows the setup step immediately and
-    // resolves this when the user continues.
-    const promise = ocr.recognize(file).then((result) =>
-      result
-        ? {
-            items: result.items,
-            restaurantName: result.restaurantName,
-            ocrText: null,
-            imageDataUrl: dataUrl,
-            charges: chargesFromExtraction(result) ?? [],
-            parsedTipCents: result.tipCents,
-            currency: result.currency,
-          }
-        : null
-    );
+    // resolves this when the user continues. `recognizeImage` stays lazily
+    // imported to keep it out of the landing page's initial bundle.
+    const promise: Promise<ScanOutcome> = import("@/lib/ocr")
+      .then(({ recognizeImage }) => recognizeImage(file))
+      .then((result) => ({
+        ok: true as const,
+        result: {
+          items: result.items,
+          restaurantName: result.restaurantName,
+          ocrText: null,
+          imageDataUrl: dataUrl,
+          charges: chargesFromExtraction(result) ?? [],
+          parsedTipCents: result.tipCents,
+          currency: result.currency,
+        },
+      }))
+      .catch((err: unknown) => ({
+        ok: false as const,
+        message: err instanceof Error ? err.message : "OCR failed",
+      }));
 
-    onScanStarted(promise, dataUrl);
-  }
-
-  function handleRetake() {
-    setImageDataUrl(null);
+    onScanStarted(promise);
   }
 
   return (
     <Section>
-      {!imageDataUrl && !ocr.isProcessing && (
-        <ImageCapture onCapture={handleCapture} />
-      )}
+      <ImageCapture onCapture={handleCapture} />
 
-      {imageDataUrl && !ocr.isProcessing && !ocr.result && (
-        <ImagePreview dataUrl={imageDataUrl} onRetake={handleRetake} />
-      )}
-
-      {ocr.isProcessing && (
-        <OcrProgressDisplay isProcessing={ocr.isProcessing} />
-      )}
-
-      {ocr.error && (
-        <p className="py-2 text-center font-receipt text-base text-accent">{ocr.error}</p>
-      )}
-
-      {ocr.result && !ocr.isProcessing && (
-        <div className="space-y-2 py-2">
-          <div className="font-receipt text-base text-ink">
-            ✓ {ocr.result.items.length} item{ocr.result.items.length !== 1 ? "s" : ""} detected
-          </div>
-          {ocr.result.items.map((item) => (
-            <div
-              key={item.id}
-              className="flex justify-between font-receipt text-base text-ink"
-            >
-              <span className="truncate">{item.name}</span>
-              <span className="ml-2 text-ink">{formatMoney(item.priceCents, ocr.result?.currency ?? "USD")}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!ocr.isProcessing && !ocr.result && (
-        <div className="flex justify-center px-4 pb-2">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
-          >
-            manual entry
-          </button>
-        </div>
-      )}
+      <div className="flex justify-center px-4 pb-2 pt-2">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="font-receipt text-base text-ink-muted underline transition-colors hover:text-ink"
+        >
+          manual entry
+        </button>
+      </div>
     </Section>
   );
 }

@@ -7,14 +7,20 @@ import { defaultCurrencyFromLocale } from "@/lib/currency";
 import { buildInitialPeople, resolveInitialTip } from "@/lib/setup";
 import { initialTip } from "@/types";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
-import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
-import { SetupSection } from "@/components/receipt/SetupSection";
+import {
+  ScanSection,
+  ScanOutcome,
+  ScanResult,
+} from "@/components/receipt/ScanSection";
+import {
+  SetupSection,
+  NameRow,
+  makeRowId,
+} from "@/components/receipt/SetupSection";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
 import { RecentSection } from "@/components/receipt/RecentSection";
 
 type Step = "idle" | "setup" | "creating";
-
-const SCAN_FAILED_MESSAGE = "Couldn't read that receipt. Try another photo.";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -27,24 +33,36 @@ export default function LandingPage() {
   // Held rather than awaited: the scan runs while the user fills the setup
   // step, so the 5-10s wait is spent on a form they have to fill anyway. Null
   // on the manual path, where there is nothing to wait for.
-  const scanPromise = useRef<Promise<ScanResult | null> | null>(null);
+  const scanPromise = useRef<Promise<ScanOutcome> | null>(null);
 
-  const [names, setNames] = useState<string[]>([""]);
+  const [names, setNames] = useState<NameRow[]>([
+    { id: makeRowId(0), name: "" },
+  ]);
   const [tipEnabled, setTipEnabled] = useState(false);
   const [tipPercent, setTipPercent] = useState(initialTip.percent);
 
-  function handleScanStarted(promise: Promise<ScanResult | null>) {
+  function handleScanStarted(promise: Promise<ScanOutcome>) {
     setScanSettled(false);
     setScanError(null);
     scanPromise.current = promise;
     setStep("setup");
 
     promise
-      .then((result) => {
-        if (!result) setScanError(SCAN_FAILED_MESSAGE);
+      .then((outcome) => {
+        // Two quick captures can both reach here; only the live one may write.
+        // Otherwise a stale failure paints the error screen over a good scan.
+        if (scanPromise.current !== promise) return;
+        // The route's specific message, not a generic one: "too many items,
+        // split it into two photos" is a different remedy from "try a clearer
+        // photo", and these failures reproduce on a re-shoot.
+        if (!outcome.ok) setScanError(outcome.message);
+        setScanSettled(true);
       })
-      .catch(() => setScanError(SCAN_FAILED_MESSAGE))
-      .finally(() => setScanSettled(true));
+      .catch(() => {
+        if (scanPromise.current !== promise) return;
+        setScanError("Couldn't read that receipt. Try another photo.");
+        setScanSettled(true);
+      });
   }
 
   function handleSkip() {
@@ -66,17 +84,19 @@ export default function LandingPage() {
     setError(null);
 
     try {
-      const scan = scanPromise.current ? await scanPromise.current : null;
+      const outcome = scanPromise.current ? await scanPromise.current : null;
 
       // The scan may have failed while the form was being filled. The setup
       // step shows the failure instead of Continue, so this is belt and braces.
-      if (scanPromise.current && !scan) {
-        setScanError(SCAN_FAILED_MESSAGE);
+      if (outcome && !outcome.ok) {
+        setScanError(outcome.message);
         setStep("setup");
         return;
       }
 
-      const people = buildInitialPeople(names);
+      const scan: ScanResult | null = outcome?.ok ? outcome.result : null;
+
+      const people = buildInitialPeople(names.map((row) => row.name));
       const tip = resolveInitialTip(
         { enabled: tipEnabled, percent: tipPercent },
         scan?.parsedTipCents ?? null

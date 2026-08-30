@@ -1,13 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { Section } from "./Section";
+
+/** Stable row id; only ever used as a React key and for local edits. */
+export function makeRowId(index: number): string {
+  return `row-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`;
+}
 
 /** Common tip percentages, matching the TIP row on the receipt page. */
 const TIP_PRESETS = [15, 18, 20, 25];
 
+/**
+ * A name row. Carries its own id so React can keep DOM nodes attached to rows
+ * across a removal — with an index key, deleting a row destroys the node for
+ * the vacated last index and drops focus mid-edit.
+ */
+export interface NameRow {
+  id: string;
+  name: string;
+}
+
 interface SetupSectionProps {
-  names: string[];
-  onChangeNames: (names: string[]) => void;
+  names: NameRow[];
+  onChangeNames: (names: NameRow[]) => void;
   tipEnabled: boolean;
   onToggleTip: (enabled: boolean) => void;
   tipPercent: number;
@@ -16,6 +32,51 @@ interface SetupSectionProps {
   isBusy: boolean;
   scanError: string | null;
   onRetake: () => void;
+}
+
+/**
+ * The percent field keeps local string state and commits on blur, per
+ * docs/conventions/react-patterns.md.
+ *
+ * Parsing every keystroke and feeding the number back as the controlled value
+ * makes a decimal impossible to type: <input type="number"> reports "" for an
+ * in-progress "12.", so parseFloat("") || 0 rewrites the box to 0 and "12.5"
+ * lands on 5 — on a field that scales everyone's total.
+ */
+function TipPercentField({
+  percent,
+  onChange,
+}: {
+  percent: number;
+  onChange: (percent: number) => void;
+}) {
+  // Seeded once; the call site remounts this on an external percent change (see
+  // the key prop) rather than syncing through a state-resetting effect.
+  const [local, setLocal] = useState(String(percent));
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number"
+        step="0.1"
+        min="0"
+        max="100"
+        value={local}
+        aria-label="Tip percentage"
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          const parsed = Math.max(0, parseFloat(local) || 0);
+          setLocal(String(parsed));
+          onChange(parsed);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        className="w-16 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
+      />
+      <span className="font-receipt text-sm text-ink-faded">%</span>
+    </div>
+  );
 }
 
 export function SetupSection({
@@ -30,12 +91,12 @@ export function SetupSection({
   scanError,
   onRetake,
 }: SetupSectionProps) {
-  function setName(index: number, value: string) {
-    onChangeNames(names.map((n, i) => (i === index ? value : n)));
+  function setName(id: string, value: string) {
+    onChangeNames(names.map((row) => (row.id === id ? { ...row, name: value } : row)));
   }
 
-  function removeName(index: number) {
-    onChangeNames(names.filter((_, i) => i !== index));
+  function removeName(id: string) {
+    onChangeNames(names.filter((row) => row.id !== id));
   }
 
   // A scan that already failed cannot be continued past — otherwise the user
@@ -43,9 +104,7 @@ export function SetupSection({
   if (scanError) {
     return (
       <Section>
-        <p className="font-receipt text-lg uppercase text-ink">
-          Couldn&apos;t read that receipt
-        </p>
+        <p className="font-receipt text-lg uppercase text-ink">Scan failed</p>
         <p className="mt-2 font-receipt text-base text-ink-muted">{scanError}</p>
         <button
           type="button"
@@ -66,19 +125,19 @@ export function SetupSection({
       </p>
 
       <div className="mt-3 space-y-2">
-        {names.map((name, index) => (
-          <div key={index} className="flex items-center gap-2">
+        {names.map((row, index) => (
+          <div key={row.id} className="flex items-center gap-2">
             <input
-              value={name}
-              onChange={(e) => setName(index, e.target.value)}
+              value={row.name}
+              onChange={(e) => setName(row.id, e.target.value)}
               placeholder="name"
-              autoFocus={index === names.length - 1 && name === ""}
+              autoFocus={index === names.length - 1 && row.name === ""}
               className="min-w-0 flex-1 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-hand text-lg text-ink placeholder:text-ink-faded focus:border-ink focus:outline-none"
             />
             <button
               type="button"
-              onClick={() => removeName(index)}
-              aria-label={`Remove ${name || "person"}`}
+              onClick={() => removeName(row.id)}
+              aria-label={`Remove ${row.name || "person"}`}
               className="px-2 font-receipt text-lg text-ink-faded hover:text-ink transition-colors"
             >
               ×
@@ -88,7 +147,9 @@ export function SetupSection({
 
         <button
           type="button"
-          onClick={() => onChangeNames([...names, ""])}
+          onClick={() =>
+            onChangeNames([...names, { id: makeRowId(names.length), name: "" }])
+          }
           className="font-receipt text-base text-ink-faded hover:text-ink transition-colors"
         >
           + add person
@@ -126,21 +187,11 @@ export function SetupSection({
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={tipPercent}
-                aria-label="Tip percentage"
-                onChange={(e) =>
-                  onChangeTipPercent(Math.max(0, parseFloat(e.target.value) || 0))
-                }
-                className="w-16 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
-              />
-              <span className="font-receipt text-sm text-ink-faded">%</span>
-            </div>
+            <TipPercentField
+              key={tipPercent}
+              percent={tipPercent}
+              onChange={onChangeTipPercent}
+            />
           </div>
         )}
       </div>

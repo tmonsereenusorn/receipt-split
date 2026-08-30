@@ -105,3 +105,21 @@ describe("resolveInitialTip", () => {
     expect(tip.percent).toBe(initialTip.percent);
   });
 });
+
+describe("tip percentages that scale everyone's total", () => {
+  it("applies a fractional percentage exactly", () => {
+    // The setup field commits a parsed float on blur; a decimal must survive
+    // into the tip. Typing 12.5 previously landed on 5.
+    const tip = resolveInitialTip({ enabled: true, percent: 12.5 }, null);
+
+    expect(tip.percent).toBe(12.5);
+    expect(tip.isPercent).toBe(true);
+  });
+
+  it("carries a zero percentage through as an explicit zero tip", () => {
+    const tip = resolveInitialTip({ enabled: true, percent: 0 }, null);
+
+    expect(tip.isPercent).toBe(true);
+    expect(tip.percent).toBe(0);
+  });
+});
