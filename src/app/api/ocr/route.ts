@@ -12,7 +12,7 @@ const EXTRACTION_PROMPT = `Extract line items, charges, tip, and currency from t
 {
   "restaurantName": "string or null",
   "items": [
-    { "name": "string", "quantity": number, "priceCents": number }
+    { "name": "string", "quantity": number, "lineTotalCents": number }
   ],
   "charges": [
     { "label": "string", "amountCents": number }
@@ -22,8 +22,9 @@ const EXTRACTION_PROMPT = `Extract line items, charges, tip, and currency from t
 }
 
 Rules:
-- priceCents is the unit price in integer cents (e.g., $12.99 -> 1299)
-- Default quantity to 1 unless explicitly shown
+- lineTotalCents is the amount printed at the end of that item line, copied as-is in integer cents. Do NOT divide it, do not compute a per-unit price, do not do any arithmetic: "3 FISH TACO ... $10.00" is quantity 3, lineTotalCents 1000
+- If a line shows a per-unit price and a line total, such as "2 @ 7.25 ... $14.50", lineTotalCents is the line total (1450)
+- quantity is the count of that item on the line. It may be written several ways, all meaning the same: "2 x Beer", "2 Beer", "Beer x2", "Beer (2)". Use 1 when no count is shown
 - items: only things ordered. Exclude every charge, subtotal, total, discount, payment method line, date, address, and phone number
 - charges: every non-item line that CHANGES the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, discounts, promotions, comps, and anything similar
 - label: copy the charge's wording from the receipt as printed, trimmed. Keep a printed percentage in the label (e.g. "Service Charge 18%"); do not convert it
