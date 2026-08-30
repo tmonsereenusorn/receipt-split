@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   calculateBreakdowns,
   getSubtotalCents,
-  getEffectiveTaxCents,
+  getChargesTotalCents,
   getEffectiveTipCents,
 } from "../calculator";
-import { ReceiptItem, Person, TaxTip } from "@/types";
+import { ReceiptItem, Person, ReceiptCharge, Tip } from "@/types";
 
 function makeItem(
   id: string,
@@ -20,21 +20,15 @@ function makePerson(id: string, name?: string): Person {
   return { id, name: name || id, color: "#000" };
 }
 
-const defaultTaxTip: TaxTip = {
-  taxCents: 0,
-  taxIsPercent: false,
-  taxPercent: 0,
-  tipCents: 0,
-  tipIsPercent: false,
-  tipPercent: 0,
-};
+function charge(id: string, label: string, amountCents: number): ReceiptCharge {
+  return { id, label, amountCents };
+}
+
+const noTip: Tip = { cents: 0, isPercent: false, percent: 0 };
 
 describe("getSubtotalCents", () => {
   it("sums qty * price for all items", () => {
-    const items = [
-      makeItem("a", 1000, [], 2),
-      makeItem("b", 500, [], 1),
-    ];
+    const items = [makeItem("a", 1000, [], 2), makeItem("b", 500, [], 1)];
     expect(getSubtotalCents(items)).toBe(2500);
   });
 
@@ -43,51 +37,36 @@ describe("getSubtotalCents", () => {
   });
 });
 
-describe("getEffectiveTaxCents", () => {
-  it("returns taxCents when not percent", () => {
+describe("getChargesTotalCents", () => {
+  it("sums every charge", () => {
     expect(
-      getEffectiveTaxCents({ ...defaultTaxTip, taxCents: 800 }, 10000)
-    ).toBe(800);
+      getChargesTotalCents([
+        charge("c1", "Tax", 537),
+        charge("c2", "Service Charge", 1105),
+      ])
+    ).toBe(1642);
   });
 
-  it("calculates percent tax from subtotal", () => {
-    const tax = getEffectiveTaxCents(
-      { ...defaultTaxTip, taxIsPercent: true, taxPercent: 8 },
-      10000
-    );
-    expect(tax).toBe(800);
-  });
-
-  it("handles 0% tax", () => {
-    const tax = getEffectiveTaxCents(
-      { ...defaultTaxTip, taxIsPercent: true, taxPercent: 0 },
-      10000
-    );
-    expect(tax).toBe(0);
+  it("returns 0 for no charges", () => {
+    expect(getChargesTotalCents([])).toBe(0);
   });
 });
 
 describe("getEffectiveTipCents", () => {
-  it("returns tipCents when not percent", () => {
-    expect(
-      getEffectiveTipCents({ ...defaultTaxTip, tipCents: 500 }, 2000)
-    ).toBe(500);
+  it("returns cents when not percent", () => {
+    expect(getEffectiveTipCents({ ...noTip, cents: 500 }, 2000)).toBe(500);
   });
 
   it("calculates percent tip from subtotal", () => {
-    const tip = getEffectiveTipCents(
-      { ...defaultTaxTip, tipIsPercent: true, tipPercent: 20 },
-      10000
-    );
-    expect(tip).toBe(2000);
+    expect(
+      getEffectiveTipCents({ cents: 0, isPercent: true, percent: 20 }, 10000)
+    ).toBe(2000);
   });
 
   it("handles 0% tip", () => {
-    const tip = getEffectiveTipCents(
-      { ...defaultTaxTip, tipIsPercent: true, tipPercent: 0 },
-      10000
-    );
-    expect(tip).toBe(0);
+    expect(
+      getEffectiveTipCents({ cents: 0, isPercent: true, percent: 0 }, 10000)
+    ).toBe(0);
   });
 });
 
@@ -96,7 +75,7 @@ describe("calculateBreakdowns", () => {
     const items = [makeItem("burger", 1000, ["alice", "bob"])];
     const people = [makePerson("alice"), makePerson("bob")];
 
-    const breakdowns = calculateBreakdowns(items, people, defaultTaxTip);
+    const breakdowns = calculateBreakdowns(items, people, [], noTip);
 
     expect(breakdowns[0].subtotalCents).toBe(500);
     expect(breakdowns[1].subtotalCents).toBe(500);
@@ -106,79 +85,130 @@ describe("calculateBreakdowns", () => {
     const items = [makeItem("pizza", 1001, ["a", "b", "c"])];
     const people = [makePerson("a"), makePerson("b"), makePerson("c")];
 
-    const breakdowns = calculateBreakdowns(items, people, defaultTaxTip);
+    const breakdowns = calculateBreakdowns(items, people, [], noTip);
 
     expect(breakdowns[0].subtotalCents).toBe(333);
     expect(breakdowns[1].subtotalCents).toBe(333);
-    expect(breakdowns[2].subtotalCents).toBe(335); // 333 + 2 remainder
-    // Total should be exact
-    const total =
-      breakdowns[0].subtotalCents +
-      breakdowns[1].subtotalCents +
-      breakdowns[2].subtotalCents;
+    expect(breakdowns[2].subtotalCents).toBe(335);
+    const total = breakdowns.reduce((s, b) => s + b.subtotalCents, 0);
     expect(total).toBe(1001);
   });
 
-  it("distributes tax proportionally", () => {
+  it("distributes a charge proportionally to subtotals", () => {
     const items = [
       makeItem("expensive", 8000, ["alice"]),
       makeItem("cheap", 2000, ["bob"]),
     ];
     const people = [makePerson("alice"), makePerson("bob")];
-    const taxTip = { ...defaultTaxTip, taxCents: 1000 };
+    const charges = [charge("c1", "Tax", 1000)];
 
-    const breakdowns = calculateBreakdowns(items, people, taxTip);
+    const breakdowns = calculateBreakdowns(items, people, charges, noTip);
 
-    expect(breakdowns[0].taxShareCents).toBe(800);
-    expect(breakdowns[1].taxShareCents).toBe(200);
+    expect(breakdowns[0].chargeShares[0].shareCents).toBe(800);
+    expect(breakdowns[1].chargeShares[0].shareCents).toBe(200);
+  });
+
+  it("carries the charge id and label into every share", () => {
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const charges = [
+      charge("c1", "Tax", 500),
+      charge("c2", "Service Charge", 1000),
+    ];
+
+    const [b1] = calculateBreakdowns(items, people, charges, noTip);
+
+    expect(b1.chargeShares).toHaveLength(2);
+    expect(b1.chargeShares[0]).toMatchObject({ chargeId: "c1", label: "Tax" });
+    expect(b1.chargeShares[1]).toMatchObject({
+      chargeId: "c2",
+      label: "Service Charge",
+    });
+  });
+
+  it("makes each charge's shares sum exactly to that charge", () => {
+    const items = [
+      makeItem("a", 3333, ["p1"]),
+      makeItem("b", 3333, ["p2"]),
+      makeItem("c", 3334, ["p3"]),
+    ];
+    const people = [makePerson("p1"), makePerson("p2"), makePerson("p3")];
+    const charges = [charge("c1", "Tax", 1000), charge("c2", "Bag Fee", 7)];
+
+    const breakdowns = calculateBreakdowns(items, people, charges, noTip);
+
+    for (const [index, c] of charges.entries()) {
+      const summed = breakdowns.reduce(
+        (s, b) => s + b.chargeShares[index].shareCents,
+        0
+      );
+      expect(summed).toBe(c.amountCents);
+    }
+  });
+
+  it("includes every charge share in the person total", () => {
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
+    const people = [makePerson("p1"), makePerson("p2")];
+    const charges = [charge("c1", "Tax", 500), charge("c2", "Bag Fee", 100)];
+
+    const [b1, b2] = calculateBreakdowns(items, people, charges, noTip);
+
+    expect(b1.totalCents).toBe(6000 + 300 + 60);
+    expect(b2.totalCents).toBe(4000 + 200 + 40);
   });
 
   it("distributes tip proportionally", () => {
-    const items = [
-      makeItem("a", 6000, ["p1"]),
-      makeItem("b", 4000, ["p2"]),
-    ];
+    const items = [makeItem("a", 6000, ["p1"]), makeItem("b", 4000, ["p2"])];
     const people = [makePerson("p1"), makePerson("p2")];
-    const taxTip: TaxTip = {
-      ...defaultTaxTip,
-      tipIsPercent: true,
-      tipPercent: 20,
-    };
+    const tip: Tip = { cents: 0, isPercent: true, percent: 20 };
 
-    const breakdowns = calculateBreakdowns(items, people, taxTip);
+    const breakdowns = calculateBreakdowns(items, people, [], tip);
 
-    // 20% of $100 = $20 total tip
-    // p1 has 60% subtotal -> $12 tip
-    // p2 has 40% subtotal -> $8 tip
     expect(breakdowns[0].tipShareCents).toBe(1200);
     expect(breakdowns[1].tipShareCents).toBe(800);
   });
 
-  it("per-person totals sum to grand total", () => {
+  it("computes a percent tip on the subtotal only, never on charges", () => {
+    // A tip compounding on a service charge would inflate the bill.
+    const items = [makeItem("a", 10000, ["p1"])];
+    const people = [makePerson("p1")];
+    const charges = [charge("c1", "Service Charge", 5000)];
+    const tip: Tip = { cents: 0, isPercent: true, percent: 20 };
+
+    const [b] = calculateBreakdowns(items, people, charges, tip);
+
+    expect(b.tipShareCents).toBe(2000); // 20% of 10000, not of 15000
+    expect(b.totalCents).toBe(10000 + 5000 + 2000);
+  });
+
+  it("changes nothing when there are no charges", () => {
+    const items = [makeItem("a", 6000, ["p1"])];
+    const people = [makePerson("p1")];
+    const tip: Tip = { cents: 1000, isPercent: false, percent: 0 };
+
+    const [b] = calculateBreakdowns(items, people, [], tip);
+
+    expect(b.chargeShares).toEqual([]);
+    expect(b.totalCents).toBe(7000);
+  });
+
+  it("per-person totals sum to the grand total", () => {
     const items = [
       makeItem("a", 1599, ["p1", "p2"]),
       makeItem("b", 899, ["p2", "p3"]),
       makeItem("c", 2150, ["p1"]),
     ];
-    const people = [
-      makePerson("p1"),
-      makePerson("p2"),
-      makePerson("p3"),
-    ];
-    const taxTip: TaxTip = {
-      taxCents: 347,
-      taxIsPercent: false,
-      taxPercent: 0,
-      tipCents: 500,
-      tipIsPercent: false,
-      tipPercent: 0,
-    };
+    const people = [makePerson("p1"), makePerson("p2"), makePerson("p3")];
+    const charges = [charge("c1", "Tax", 347), charge("c2", "Service", 211)];
+    const tip: Tip = { cents: 500, isPercent: false, percent: 0 };
 
-    const breakdowns = calculateBreakdowns(items, people, taxTip);
+    const breakdowns = calculateBreakdowns(items, people, charges, tip);
 
-    // Tax/tip is based on assigned subtotal, not full receipt subtotal
     const assignedSubtotal = breakdowns.reduce((s, b) => s + b.subtotalCents, 0);
-    const grandTotal = assignedSubtotal + getEffectiveTaxCents(taxTip, assignedSubtotal) + getEffectiveTipCents(taxTip, assignedSubtotal);
+    const grandTotal =
+      assignedSubtotal +
+      getChargesTotalCents(charges) +
+      getEffectiveTipCents(tip, assignedSubtotal);
     const personTotal = breakdowns.reduce((s, b) => s + b.totalCents, 0);
 
     expect(personTotal).toBe(grandTotal);
@@ -188,46 +218,39 @@ describe("calculateBreakdowns", () => {
     const items = [makeItem("beer", 600, ["alice"], 3)];
     const people = [makePerson("alice")];
 
-    const breakdowns = calculateBreakdowns(items, people, defaultTaxTip);
+    const breakdowns = calculateBreakdowns(items, people, [], noTip);
 
-    // 3 * $6.00 = $18.00
     expect(breakdowns[0].subtotalCents).toBe(1800);
     expect(breakdowns[0].totalCents).toBe(1800);
   });
 
-  it("computes tax/tip from assigned subtotal, not full receipt", () => {
+  it("computes the tip from the assigned subtotal, not the full receipt", () => {
     const items = [
       makeItem("a", 6000, ["p1"]),
       makeItem("b", 4000, ["p2"]),
       makeItem("unassigned", 5000, []),
     ];
     const people = [makePerson("p1"), makePerson("p2")];
-    const taxTip: TaxTip = {
-      ...defaultTaxTip,
-      taxIsPercent: true,
-      taxPercent: 10,
-      tipIsPercent: true,
-      tipPercent: 20,
-    };
+    const tip: Tip = { cents: 0, isPercent: true, percent: 10 };
 
-    const breakdowns = calculateBreakdowns(items, people, taxTip);
+    const breakdowns = calculateBreakdowns(items, people, [], tip);
 
-    // Tax/tip should be based on assigned subtotal ($100), not full receipt ($150)
-    // p1: 10% of $60 = $6 tax, 20% of $60 = $12 tip
-    // p2: 10% of $40 = $4 tax, 20% of $40 = $8 tip
-    expect(breakdowns[0].taxShareCents).toBe(600);
-    expect(breakdowns[0].tipShareCents).toBe(1200);
-    expect(breakdowns[1].taxShareCents).toBe(400);
-    expect(breakdowns[1].tipShareCents).toBe(800);
+    // 10% of the 10000 assigned, not of the 15000 on the receipt
+    const totalTip = breakdowns.reduce((s, b) => s + b.tipShareCents, 0);
+    expect(totalTip).toBe(1000);
   });
 
-  it("handles no assignments", () => {
-    const items = [makeItem("orphan", 1000, [])];
-    const people = [makePerson("alice")];
+  it("returns zero shares when nothing is assigned", () => {
+    const items = [makeItem("a", 5000, [])];
+    const people = [makePerson("p1")];
+    const charges = [charge("c1", "Tax", 400)];
+    const tip: Tip = { cents: 0, isPercent: true, percent: 20 };
 
-    const breakdowns = calculateBreakdowns(items, people, defaultTaxTip);
+    const [b] = calculateBreakdowns(items, people, charges, tip);
 
-    expect(breakdowns[0].subtotalCents).toBe(0);
-    expect(breakdowns[0].items).toHaveLength(0);
+    expect(b.subtotalCents).toBe(0);
+    expect(b.chargeShares[0].shareCents).toBe(0);
+    expect(b.tipShareCents).toBe(0);
+    expect(b.totalCents).toBe(0);
   });
 });
