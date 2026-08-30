@@ -56,6 +56,46 @@ body {
   fill: none;
 }
 
+/* Marks made by hand on the paper, in the same red pen as .strikethrough-line.
+   Printed things are type; marked things are strokes. */
+.pen-mark {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+/* A circled answer. Real pen circles overshoot where the stroke passes its own
+   start and sit a little off-axis, so the path does both rather than being a
+   true ellipse. */
+.pen-circle {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+  transform: rotate(-4deg);
+  transform-origin: center;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: pen-circle-draw 420ms ease-out;
+}
+
+@keyframes pen-circle-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pen-circle {
+    animation: none;
+  }
+}
+
 .print-only {
   display: none;
 }

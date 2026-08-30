@@ -8,10 +8,9 @@ export interface ReceiptMoney {
   tip: Tip;
 }
 
-/** The subset of an extraction result that determines charges and tip. */
+/** The subset of an extraction result that determines charges. */
 export interface ExtractionChargeInput {
   charges: ExtractedCharge[];
-  tipCents: number | null;
 }
 
 /**
@@ -157,31 +156,22 @@ export function normalizeReceiptMoney(
 }
 
 /**
- * Derive the charges and tip implied by a scanned receipt, or null if it
- * reported neither.
+ * Derive the stored charges implied by a scanned receipt, or null if it
+ * reported none.
  *
- * A charge never alters the tip. An earlier design zeroed the tip when a
- * service charge was detected; it misfired on zero-value charges and on
- * ordinary fees like a bag fee, so the rule was removed rather than narrowed.
+ * This deliberately does NOT decide the tip. The tip is resolved once, in
+ * `resolveInitialTip`, which weighs the setup answer against what the bill
+ * printed. Two places deciding the tip is exactly how the earlier tip-zeroing
+ * bugs arose.
  */
 export function chargesFromExtraction(
   result: ExtractionChargeInput
-): { charges: ReceiptCharge[]; tip?: Tip } | null {
-  if (result.charges.length === 0 && result.tipCents == null) return null;
+): ReceiptCharge[] | null {
+  if (result.charges.length === 0) return null;
 
-  const charges = result.charges.map((charge, index) => ({
+  return result.charges.map((charge, index) => ({
     id: makeChargeId(charge.label, index),
     label: charge.label,
     amountCents: charge.amountCents,
   }));
-
-  if (result.tipCents == null) return { charges };
-
-  return {
-    charges,
-    // percent keeps its default rather than dropping to 0: the amount comes from
-    // `cents` with isPercent false, so zeroing percent would only mean that
-    // toggling the row to % shows 0% instead of the app's suggestion.
-    tip: { cents: result.tipCents, isPercent: false, percent: initialTip.percent },
-  };
 }

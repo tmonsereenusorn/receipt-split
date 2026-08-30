@@ -169,17 +169,16 @@ describe("normalizeReceiptMoney", () => {
 });
 
 describe("chargesFromExtraction", () => {
-  it("returns no overrides when the receipt reported nothing", () => {
-    expect(chargesFromExtraction({ charges: [], tipCents: null })).toBeNull();
+  it("returns null when the receipt reported no charges", () => {
+    expect(chargesFromExtraction({ charges: [] })).toBeNull();
   });
 
   it("maps extracted charges to stored charges with ids", () => {
     const result = chargesFromExtraction({
       charges: [{ label: "Service Charge", amountCents: 1105 }],
-      tipCents: null,
     });
 
-    expect(result?.charges).toEqual([
+    expect(result).toEqual([
       {
         id: makeChargeId("Service Charge", 0),
         label: "Service Charge",
@@ -194,42 +193,27 @@ describe("chargesFromExtraction", () => {
         { label: "Fee", amountCents: 100 },
         { label: "Fee", amountCents: 200 },
       ],
-      tipCents: null,
     });
 
-    const ids = result?.charges.map((c) => c.id) ?? [];
+    const ids = result?.map((c) => c.id) ?? [];
     expect(new Set(ids).size).toBe(2);
   });
 
-  it("maps a parsed tip to fixed cash", () => {
-    const result = chargesFromExtraction({ charges: [], tipCents: 1250 });
-
-    // percent keeps the default so toggling to % offers the suggestion rather
-    // than 0%; the amount itself comes from cents with isPercent false.
-    expect(result?.tip).toEqual({
-      cents: 1250,
-      isPercent: false,
-      percent: initialTip.percent,
-    });
-  });
-
-  it("leaves the tip untouched when the receipt reported none", () => {
-    // No tip-zeroing exists in any form: a charge must never alter the tip.
-    const result = chargesFromExtraction({
-      charges: [{ label: "Service Charge", amountCents: 1105 }],
-      tipCents: null,
-    });
-
-    expect(result?.tip).toBeUndefined();
-  });
-
-  it("never zeroes the tip even when a gratuity-like charge is present", () => {
+  it("does not decide the tip", () => {
+    // The tip is resolved once, in resolveInitialTip, which weighs the setup
+    // answer against the bill. Two places deciding it is how the old
+    // tip-zeroing bugs happened.
     const result = chargesFromExtraction({
       charges: [{ label: "Auto-Gratuity 18%", amountCents: 1105 }],
-      tipCents: null,
     });
 
-    expect(result?.tip).toBeUndefined();
+    expect(result).toEqual([
+      {
+        id: makeChargeId("Auto-Gratuity 18%", 0),
+        label: "Auto-Gratuity 18%",
+        amountCents: 1105,
+      },
+    ]);
   });
 });
 
