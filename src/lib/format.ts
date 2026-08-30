@@ -9,50 +9,49 @@ import { formatMoney, formatMoneyRaw } from "./currency";
 /**
  * Generate a shareable text summary of the receipt split.
  */
+/**
+ * A summary made for pasting into a group chat.
+ *
+ * Deliberately just the totals: who owes what, and a link to the receipt for
+ * anyone who wants the item-by-item breakdown. The long form belonged on the
+ * page, not in everyone's messages.
+ */
 export function generateShareText(
   items: ReceiptItem[],
   charges: ReceiptCharge[],
   tip: Tip,
   breakdowns: PersonBreakdown[],
-  currency: string
+  currency: string,
+  url: string,
+  restaurantName: string | null
 ): string {
   const subtotal = getSubtotalCents(items);
   const tipCents = getEffectiveTipCents(tip, subtotal);
-  const chargesTotal = getChargesTotalCents(charges);
-  const grandTotal = subtotal + chargesTotal + tipCents;
+  const grandTotal = subtotal + getChargesTotalCents(charges) + tipCents;
+
+  // Charges and tip are distributed across assigned items only, so with
+  // anything unassigned the per-person lines sum to less than the total. Naming
+  // the gap keeps that from reading as an arithmetic error.
+  const split = breakdowns.reduce((sum, b) => sum + b.totalCents, 0);
+  const unassigned = grandTotal - split;
 
   const lines: string[] = [
-    "Shplit",
-    "─".repeat(30),
-    `Subtotal: ${formatMoney(subtotal, currency)}`,
-    ...charges
-      .filter((c) => c.amountCents !== 0)
-      .map((c) => `${c.label}: ${formatMoney(c.amountCents, currency)}`),
-    `Tip: ${formatMoney(tipCents, currency)}`,
-    `Total: ${formatMoney(grandTotal, currency)}`,
+    restaurantName ? `Shplit · ${restaurantName}` : "Shplit",
+    unassigned > 0
+      ? `Total: ${formatMoney(grandTotal, currency)} · ${formatMoney(unassigned, currency)} unassigned`
+      : `Total: ${formatMoney(grandTotal, currency)}`,
     "",
-    "Per Person:",
-    "─".repeat(30),
   ];
 
   for (const b of breakdowns) {
+    // Someone on the receipt but assigned nothing is noise in a summary.
+    if (b.totalCents === 0) continue;
     lines.push(`${b.person.name}: ${formatMoney(b.totalCents, currency)}`);
-    for (const pi of b.items) {
-      const splitNote =
-        pi.splitCount > 1 ? ` (1/${pi.splitCount})` : "";
-      lines.push(`  • ${pi.item.name}${splitNote}: ${formatMoney(pi.shareCents, currency)}`);
-    }
-    for (const share of b.chargeShares) {
-      // !== 0 rather than > 0: a discount is a negative charge and must show.
-      if (share.shareCents !== 0) {
-        lines.push(`  • ${share.label}: ${formatMoney(share.shareCents, currency)}`);
-      }
-    }
-    if (b.tipShareCents > 0) {
-      lines.push(`  • Tip: ${formatMoney(b.tipShareCents, currency)}`);
-    }
-    lines.push("");
   }
+
+  // A bare URL in a chat gives no reason to tap it. This says what is on the
+  // other side — the per-item detail this summary deliberately leaves out.
+  lines.push("", "See the full breakdown:", url);
 
   return lines.join("\n");
 }

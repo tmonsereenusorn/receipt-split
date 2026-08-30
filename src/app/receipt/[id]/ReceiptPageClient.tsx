@@ -63,9 +63,25 @@ export default function ReceiptPageClient({ id }: { id: string }) {
       ? calculateBreakdowns(receipt.items, receipt.people, receipt.charges, receipt.tip)
       : [];
 
+  // window.location rather than a hardcoded origin, so a link copied from a
+  // preview deployment or localhost points back at where it was copied from.
+  // Guarded because this component still renders on the server.
+  const shareUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : `https://shplit.vercel.app/receipt/${id}`;
+
   const shareText =
     breakdowns.length > 0
-      ? generateShareText(receipt.items, receipt.charges, receipt.tip, breakdowns, receipt.currency)
+      ? generateShareText(
+          receipt.items,
+          receipt.charges,
+          receipt.tip,
+          breakdowns,
+          receipt.currency,
+          shareUrl,
+          receipt.restaurantName
+        )
       : "";
 
   const csvText =
