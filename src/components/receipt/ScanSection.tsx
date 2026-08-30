@@ -7,14 +7,16 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatMoney } from "@/lib/currency";
-import type { ReceiptItem, TaxTip } from "@/types";
+import type { ReceiptCharge, ReceiptItem, Tip } from "@/types";
+import { chargesFromExtraction } from "@/lib/charges";
 
 export interface ScanResult {
   items: ReceiptItem[];
   restaurantName: string | null;
   ocrText: string | null;
   imageDataUrl: string;
-  taxTip: Partial<TaxTip> | null;
+  charges: ReceiptCharge[];
+  tip?: Tip;
   currency: string;
 }
 
@@ -32,19 +34,14 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
 
     const result = await ocr.recognize(file);
     if (result) {
-      const taxTip: Partial<TaxTip> | null =
-        result.taxCents != null || result.tipCents != null
-          ? {
-              ...(result.taxCents != null && { taxCents: result.taxCents, taxIsPercent: false }),
-              ...(result.tipCents != null && { tipCents: result.tipCents, tipIsPercent: false }),
-            }
-          : null;
+      const money = chargesFromExtraction(result);
       onScanResult({
         items: result.items,
         restaurantName: result.restaurantName,
         ocrText: null,
         imageDataUrl: dataUrl,
-        taxTip,
+        charges: money?.charges ?? [],
+        ...(money?.tip && { tip: money.tip }),
         currency: result.currency,
       });
     }

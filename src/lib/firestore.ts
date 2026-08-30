@@ -1,3 +1,4 @@
+import { normalizeReceiptMoney } from "./charges";
 import {
   doc,
   addDoc,
@@ -14,8 +15,9 @@ import {
   ReceiptDoc,
   ReceiptItem,
   Person,
-  TaxTip,
-  initialTaxTip,
+  Tip,
+  initialTip,
+  ReceiptCharge,
 } from "@/types";
 
 const COLLECTION = "receipts";
@@ -44,7 +46,8 @@ export async function createReceipt(
     currency: partial.currency ?? "USD",
     items: partial.items ?? [],
     people: partial.people ?? [],
-    taxTip: partial.taxTip ?? initialTaxTip,
+    charges: partial.charges ?? [],
+    tip: partial.tip ?? initialTip,
     imageDataUrl: partial.imageDataUrl ?? null,
     ocrText: partial.ocrText ?? null,
     createdAt: Date.now(),
@@ -231,12 +234,53 @@ export async function fsToggleAssignment(
 }
 
 /** Atomic: update tax/tip */
-export async function fsSetTaxTip(id: string, taxTip: Partial<TaxTip>) {
+export async function fsAddCharge(id: string, charge: ReceiptCharge) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    tx.update(ref, { taxTip: { ...data.taxTip, ...taxTip } });
+    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: [...charges, charge] });
+  });
+}
+
+export async function fsUpdateCharge(
+  id: string,
+  chargeId: string,
+  updates: Partial<Omit<ReceiptCharge, "id">>
+) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, {
+      charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),
+    });
+  });
+}
+
+export async function fsDeleteCharge(id: string, chargeId: string) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId) });
+  });
+}
+
+/**
+ * Writes go through normalizeReceiptMoney so a legacy document self-heals into
+ * the new shape the first time it is touched.
+ */
+export async function fsSetTip(id: string, updates: Partial<Tip>) {
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    const data = requireData(snap);
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges, tip: { ...tip, ...updates } });
   });
 }
 

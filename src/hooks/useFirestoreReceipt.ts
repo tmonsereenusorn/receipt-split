@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import {
   ReceiptDoc,
   ReceiptItem,
-  TaxTip,
-  initialTaxTip,
+  ReceiptCharge,
+  Tip,
 } from "@/types";
+import { normalizeReceiptMoney } from "@/lib/charges";
 import {
   subscribeToReceipt,
   fsSetItems,
@@ -19,7 +20,10 @@ import {
   fsUpdatePerson,
   fsDeletePerson,
   fsToggleAssignment,
-  fsSetTaxTip,
+  fsAddCharge,
+  fsUpdateCharge,
+  fsDeleteCharge,
+  fsSetTip,
   fsSetRestaurantName,
   fsSetCurrency,
   fsSetOcrText,
@@ -53,7 +57,9 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const items = data?.items ?? [];
   const people = data?.people ?? [];
-  const taxTip = data?.taxTip ?? initialTaxTip;
+  // Recomputed on every render rather than stored, so a legacy document is
+  // converted on each read and no consumer can see the pre-charges shape.
+  const { charges, tip } = normalizeReceiptMoney(data, items);
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
@@ -188,13 +194,58 @@ export function useFirestoreReceipt(receiptId: string) {
     [receiptId]
   );
 
-  const setTaxTip = useCallback(
-    (updates: Partial<TaxTip>) => {
-      setData(prev => prev ? { ...prev, taxTip: { ...prev.taxTip, ...updates } } : prev);
-      fsSetTaxTip(receiptId, updates);
+  const addCharge = useCallback(
+    (label: string, amountCents: number) => {
+      const charge: ReceiptCharge = {
+        id: `charge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        label,
+        amountCents,
+      };
+      setData(prev =>
+        prev ? { ...prev, charges: [...(prev.charges ?? []), charge] } : prev
+      );
+      fsAddCharge(receiptId, charge);
     },
     [receiptId]
   );
+
+  const updateCharge = useCallback(
+    (chargeId: string, updates: Partial<Omit<ReceiptCharge, "id">>) => {
+      setData(prev =>
+        prev
+          ? {
+              ...prev,
+              charges: (prev.charges ?? []).map(c =>
+                c.id === chargeId ? { ...c, ...updates } : c
+              ),
+            }
+          : prev
+      );
+      fsUpdateCharge(receiptId, chargeId, updates);
+    },
+    [receiptId]
+  );
+
+  const deleteCharge = useCallback(
+    (chargeId: string) => {
+      setData(prev =>
+        prev
+          ? { ...prev, charges: (prev.charges ?? []).filter(c => c.id !== chargeId) }
+          : prev
+      );
+      fsDeleteCharge(receiptId, chargeId);
+    },
+    [receiptId]
+  );
+
+  const setTip = useCallback(
+    (updates: Partial<Tip>) => {
+      setData(prev => (prev ? { ...prev, tip: { ...prev.tip, ...updates } } : prev));
+      fsSetTip(receiptId, updates);
+    },
+    [receiptId]
+  );
+
 
   const setCurrency = useCallback(
     (currency: string) => {
@@ -223,7 +274,8 @@ export function useFirestoreReceipt(receiptId: string) {
   return {
     items,
     people,
-    taxTip,
+    charges,
+    tip,
     imageDataUrl,
     ocrText,
     restaurantName,
@@ -240,7 +292,10 @@ export function useFirestoreReceipt(receiptId: string) {
     updatePerson,
     deletePerson,
     toggleAssignment,
-    setTaxTip,
+    addCharge,
+    updateCharge,
+    deleteCharge,
+    setTip,
     setCurrency,
     setRestaurantName,
     setOcrText,
