@@ -11,10 +11,17 @@ export interface ExtractedItem {
   priceCents: number;
 }
 
+/** A non-item line that adds to the total: tax, service charge, any fee. */
+export interface ExtractedCharge {
+  /** Label as printed on the receipt */
+  label: string;
+  amountCents: number;
+}
+
 export interface ExtractedReceipt {
   restaurantName: string | null;
   items: ExtractedItem[];
-  taxCents: number | null;
+  charges: ExtractedCharge[];
   tipCents: number | null;
   currency: string;
 }
@@ -120,18 +127,44 @@ function parseAndValidate(text: string): ParseResult {
       priceCents: Math.round(item.priceCents),
     }));
 
-  const taxCents =
-    typeof parsed.taxCents === "number" && parsed.taxCents >= 0
-      ? Math.round(parsed.taxCents)
-      : null;
   const tipCents =
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0
       ? Math.round(parsed.tipCents)
       : null;
 
+  // A malformed charges value yields no charges rather than throwing: the
+  // receipt's items are still usable, and an absent key is the common case.
+  const rawCharges: unknown[] = Array.isArray(parsed.charges)
+    ? parsed.charges
+    : [];
+
+  const validCharges = rawCharges.filter(
+    (charge: unknown): charge is ExtractedCharge =>
+      typeof charge === "object" &&
+      charge !== null &&
+      typeof (charge as ExtractedCharge).label === "string" &&
+      (charge as ExtractedCharge).label.trim().length > 0 &&
+      typeof (charge as ExtractedCharge).amountCents === "number" &&
+      Number.isFinite((charge as ExtractedCharge).amountCents) &&
+      (charge as ExtractedCharge).amountCents >= 0
+  );
+
+  // Zero-amount charges are valid input but add nothing, so they are not kept —
+  // storing them would render a $0.00 row. They are not counted as dropped.
+  const charges: ExtractedCharge[] = validCharges
+    .map((charge) => ({
+      label: charge.label.trim(),
+      amountCents: Math.round(charge.amountCents),
+    }))
+    .filter((charge) => charge.amountCents > 0);
+
   return {
-    receipt: { restaurantName, items, taxCents, tipCents, currency },
-    dropped: parsed.items.length - items.length,
+    receipt: { restaurantName, items, charges, tipCents, currency },
+    // An invalid charge counts as dropped, surfacing as a `partial` failure.
+    // Silently discarding one would undercount the total, which is the exact
+    // failure this feature exists to fix.
+    dropped:
+      parsed.items.length - items.length + (rawCharges.length - validCharges.length),
   };
 }
 
