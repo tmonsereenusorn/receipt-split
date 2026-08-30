@@ -49,7 +49,9 @@ export function generateShareText(
     lines.push(`${b.person.name}: ${formatMoney(b.totalCents, currency)}`);
   }
 
-  lines.push("", url);
+  // A bare URL in a chat gives no reason to tap it. This says what is on the
+  // other side — the per-item detail this summary deliberately leaves out.
+  lines.push("", "See the full breakdown:", url);
 
   return lines.join("\n");
 }

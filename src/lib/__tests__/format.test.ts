@@ -58,6 +58,7 @@ describe("generateShareText", () => {
         "p1: $60.00",
         "p2: $40.00",
         "",
+        "See the full breakdown:",
         LINK,
       ].join("\n")
     );
