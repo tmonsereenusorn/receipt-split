@@ -90,12 +90,23 @@ order must be rewritten; doing that from the caller's view would let two simulta
 each other from the order. Deleting a person must also strip them from every assignment list,
 which is not expressible as independent field writes.
 
-**These five lose their instant feedback**, because the hand-rolled optimistic layer is being
-deleted and transactions get none from Firestore. That is acceptable here: all five are edited
-rarely and never in the rapid succession that makes assignment race, and the inputs that drive
-them already hold their own local state while focused, so only the derived total lags. Everything
-on the hot path — assigning, adding, renaming, deleting, reordering items — becomes a field-path
-`updateDoc` and is instant.
+**Every transaction loses instant feedback**, because the hand-rolled optimistic layer is being
+deleted and transactions get none from Firestore.
+
+That is a deliberate trade, made twice and worth stating plainly:
+
+- **`fsAddItem`**: adding an item waits for the server, because a new row prepends and there is
+  no `arrayPrepend`. The alternative — writing the order from the caller's view — let two
+  simultaneous adds drop each other from the order, landing the item at the bottom, which is the
+  placement prepending exists to avoid. Prepending correctly is worth one round-trip on an action
+  taken a few times per receipt; appending instantly is not, because the blank row is meant to be
+  typed into and would be below the fold.
+- **`fsUpdatePerson`, `fsUpdateCharge`, `fsDeleteCharge`, `fsSetTip`**: `people` and `charges`
+  remain arrays of objects, so these stay read-modify-write. Their inputs already hold local
+  state while focused, so only the derived total lags.
+
+**Instant:** assigning, renaming an item, deleting an item, reordering. Assignment is the rapid,
+repeated action and the one this whole change exists to fix.
 
 ## Backward compatibility
 

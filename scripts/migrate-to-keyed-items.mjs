@@ -45,7 +45,12 @@ function decode(v) {
   if ("doubleValue" in v) return Number(v.doubleValue);
   if ("arrayValue" in v) return (v.arrayValue.values ?? []).map(decode);
   if ("mapValue" in v) return decodeFields(v.mapValue.fields ?? {});
-  return null;
+  // Throws rather than returning null. The write below replaces the whole
+  // document, so an unrecognised type — timestampValue, bytesValue,
+  // referenceValue, geoPointValue — would be silently nulled. Today's schema has
+  // none, but a field added later, or written by another client, must fail the
+  // run rather than quietly erase data.
+  throw new Error(`Unsupported Firestore value type: ${Object.keys(v).join(",")}`);
 }
 const decodeFields = (f) =>
   Object.fromEntries(Object.entries(f).map(([k, v]) => [k, decode(v)]));
@@ -55,10 +60,12 @@ function encode(v) {
   if (v === null || v === undefined) return { nullValue: null };
   if (typeof v === "string") return { stringValue: v };
   if (typeof v === "boolean") return { booleanValue: v };
-  if (typeof v === "number")
-    return Number.isInteger(v)
-      ? { integerValue: String(v) }
-      : { doubleValue: v };
+  // Every number is written as a double, matching what the Firestore JS SDK
+  // does, so a migrated document and one the app writes store the same field the
+  // same way. It also sidesteps int64: two live receipts hold a priceCents of
+  // 1.23e19 from digits mashed into a price field, which overflows integerValue
+  // and Firestore rejects outright.
+  if (typeof v === "number") return { doubleValue: v };
   if (Array.isArray(v)) return { arrayValue: { values: v.map(encode) } };
   return { mapValue: { fields: encodeFields(v) } };
 }
@@ -72,8 +79,14 @@ export function keyItems(items) {
   const keyed = {};
   const assignments = {};
   const itemOrder = [];
+  // Counted, not just skipped: this is a destructive whole-document write, and a
+  // silently dropped item would look identical to a receipt that never had it.
+  const dropped = [];
   for (const item of items) {
-    if (!item || typeof item.id !== "string") continue;
+    if (!item || typeof item.id !== "string") {
+      dropped.push(item);
+      continue;
+    }
     keyed[item.id] = {
       name: String(item.name ?? ""),
       quantity: Number(item.quantity ?? 1),
@@ -84,7 +97,7 @@ export function keyItems(items) {
       assignments[item.id] = item.assignedTo;
     }
   }
-  return { items: keyed, itemOrder, assignments };
+  return { items: keyed, itemOrder, assignments, dropped };
 }
 
 /** Mirrors the migrateLegacy that used to live in src/lib/charges.ts. */
@@ -141,8 +154,18 @@ export async function main() {
       continue; // already keyed
     }
 
-    const { items, itemOrder, assignments } = keyItems(data.items);
+    const { items, itemOrder, assignments, dropped } = keyItems(data.items);
     const money = moneyFromTaxTip(data.taxTip, data.items);
+
+    // Refuse rather than write a lossy document. The operator can inspect and
+    // decide; the alternative is a summary that reports only the survivors.
+    if (dropped.length > 0) {
+      console.error(
+        `  SKIPPED        ${id}: ${dropped.length} of ${data.items.length} items have no usable id`
+      );
+      failed++;
+      continue;
+    }
 
     const next = { ...data, items, itemOrder, assignments };
     if (money) {
@@ -154,7 +177,7 @@ export async function main() {
     }
     delete next.taxTip;
 
-    const summary = `${id}  ${itemOrder.length} items, ${
+    const summary = `${id}  ${itemOrder.length}/${data.items.length} items, ${
       Object.keys(assignments).length
     } assigned, ${next.charges.length} charges`;
 
