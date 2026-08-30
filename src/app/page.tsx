@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReceipt } from "@/lib/firestore";
 import { defaultCurrencyFromLocale } from "@/lib/currency";
+import { resolveInitialTip } from "@/lib/setup";
 import { ReceiptTape } from "@/components/receipt/ReceiptTape";
 import { ScanSection, ScanResult } from "@/components/receipt/ScanSection";
 import { useRecentReceipts } from "@/hooks/useRecentReceipts";
@@ -25,7 +26,7 @@ export default function LandingPage() {
         ocrText: result.ocrText,
         currency: result.currency,
         charges: result.charges,
-        ...(result.tip && { tip: result.tip }),
+        tip: resolveInitialTip({ enabled: false, percent: 20 }, result.parsedTipCents),
       });
       router.push(`/receipt/${id}`);
     } catch {

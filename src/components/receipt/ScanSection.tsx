@@ -7,7 +7,7 @@ import { ImagePreview } from "@/components/scan/ImagePreview";
 import { OcrProgressDisplay } from "@/components/scan/OcrProgress";
 import { Section } from "./Section";
 import { formatMoney } from "@/lib/currency";
-import type { ReceiptCharge, ReceiptItem, Tip } from "@/types";
+import type { ReceiptCharge, ReceiptItem } from "@/types";
 import { chargesFromExtraction } from "@/lib/charges";
 
 export interface ScanResult {
@@ -16,7 +16,11 @@ export interface ScanResult {
   ocrText: string | null;
   imageDataUrl: string;
   charges: ReceiptCharge[];
-  tip?: Tip;
+  /**
+   * The tip as printed on the bill, or null if none was found. Raw rather than
+   * resolved: `resolveInitialTip` weighs it against the setup answer.
+   */
+  parsedTipCents: number | null;
   currency: string;
 }
 
@@ -34,14 +38,13 @@ export function ScanSection({ onScanResult, onSkip }: ScanSectionProps) {
 
     const result = await ocr.recognize(file);
     if (result) {
-      const money = chargesFromExtraction(result);
       onScanResult({
         items: result.items,
         restaurantName: result.restaurantName,
         ocrText: null,
         imageDataUrl: dataUrl,
-        charges: money?.charges ?? [],
-        ...(money?.tip && { tip: money.tip }),
+        charges: chargesFromExtraction(result) ?? [],
+        parsedTipCents: result.tipCents,
         currency: result.currency,
       });
     }
