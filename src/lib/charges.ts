@@ -1,5 +1,4 @@
-import { initialTip, ReceiptCharge, ReceiptItem, Tip } from "@/types";
-import { getSubtotalCents } from "./calculator";
+import { initialTip, ReceiptCharge, Tip } from "@/types";
 import type { ExtractedCharge } from "./receiptExtraction";
 
 /** The money half of a receipt: everything that is not an item. */
@@ -11,20 +10,6 @@ export interface ReceiptMoney {
 /** The subset of an extraction result that determines charges. */
 export interface ExtractionChargeInput {
   charges: ExtractedCharge[];
-}
-
-/**
- * The shape receipts were stored in before charges existed: fixed tax and tip
- * field groups, plus the service group added later. Only read during migration.
- */
-interface LegacyTaxTip {
-  taxCents?: number;
-  taxIsPercent?: boolean;
-  taxPercent?: number;
-  tipCents?: number;
-  tipIsPercent?: boolean;
-  tipPercent?: number;
-  serviceCents?: number;
 }
 
 /**
@@ -84,57 +69,14 @@ function normalizeTip(raw: unknown): Tip {
 }
 
 /**
- * Convert a legacy tax/tip/service map into charges plus a tip.
+ * Read a receipt's money fields, guarding the storage boundary.
  *
- * A legacy percent tax needs the subtotal to become cash, which the stored
- * items supply exactly. The amount then freezes: editing an item afterwards no
- * longer rescales it. That is the new model's intent — the tax printed on a
- * receipt does not change because a typo was corrected — but it is a visible
- * change on receipts already in use.
+ * Receipts written before charges existed are no longer supported; their
+ * `taxTip` map is ignored and they read as having no charges. Carrying that
+ * migration was the source of three data-loss defects, and the codebase now has
+ * one shape rather than two.
  */
-function migrateLegacy(legacy: LegacyTaxTip, items: ReceiptItem[]): ReceiptMoney {
-  const subtotal = getSubtotalCents(items);
-  const charges: ReceiptCharge[] = [];
-
-  const taxCents = legacy.taxIsPercent
-    ? Math.round((subtotal * (legacy.taxPercent ?? 0)) / 100)
-    : legacy.taxCents ?? 0;
-  // Zero-valued legacy fields produce no charge, so migrated receipts don't
-  // sprout $0.00 rows for tax or service they never had.
-  if (taxCents > 0) {
-    charges.push({ id: makeChargeId("Tax"), label: "Tax", amountCents: taxCents });
-  }
-
-  const serviceCents = legacy.serviceCents ?? 0;
-  if (serviceCents > 0) {
-    charges.push({
-      id: makeChargeId("Service Charge"),
-      label: "Service Charge",
-      amountCents: serviceCents,
-    });
-  }
-
-  return {
-    charges,
-    tip: {
-      cents: legacy.tipCents ?? initialTip.cents,
-      isPercent: legacy.tipIsPercent ?? initialTip.isPercent,
-      percent: legacy.tipPercent ?? initialTip.percent,
-    },
-  };
-}
-
-/**
- * Read a receipt's money fields in whatever shape they are stored.
- *
- * Documents written before charges existed carry a `taxTip` map and no
- * `charges`; they convert here at the read boundary, so no migration job is
- * needed and writes self-heal into the new shape.
- */
-export function normalizeReceiptMoney(
-  raw: unknown,
-  items: ReceiptItem[]
-): ReceiptMoney {
+export function normalizeReceiptMoney(raw: unknown): ReceiptMoney {
   if (typeof raw !== "object" || raw === null) {
     return { charges: [], tip: initialTip };
   }
@@ -146,10 +88,6 @@ export function normalizeReceiptMoney(
       charges: doc.charges.filter(isStoredCharge),
       tip: normalizeTip(doc.tip),
     };
-  }
-
-  if (typeof doc.taxTip === "object" && doc.taxTip !== null) {
-    return migrateLegacy(doc.taxTip as LegacyTaxTip, items);
   }
 
   return { charges: [], tip: initialTip };

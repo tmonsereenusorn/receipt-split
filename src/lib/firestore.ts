@@ -82,7 +82,6 @@ export function subscribeToReceipt(
   );
 }
 
-/** Set items array (last-write-wins — existence-guarded but not merge-safe) */
 /**
  * Every mutation below is a field-path `updateDoc`, not a transaction.
  *
@@ -96,16 +95,37 @@ export function subscribeToReceipt(
  * write being retried.
  */
 
+/**
+ * Replaces the whole item list from client state, so unlike its neighbours this
+ * IS a read-modify-write and keeps its transaction, per
+ * docs/conventions/firestore.md. The existence guard matters: writing a keyed
+ * map to a deleted receipt would recreate a partial document.
+ */
 export async function fsSetItems(id: string, items: ReceiptItem[]) {
-  const { items: keyed, itemOrder, assignments } = storedFromItems(items);
-  await updateDoc(receiptRef(id), { items: keyed, itemOrder, assignments });
+  await runTransaction(db, async (tx) => {
+    const ref = receiptRef(id);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("Receipt not found");
+    const { items: keyed, itemOrder, assignments } = storedFromItems(items);
+    tx.update(ref, { items: keyed, itemOrder, assignments });
+  });
 }
 
-export async function fsAddItem(id: string, item: ReceiptItem) {
+/**
+ * A new item goes to the TOP, as it always has — the blank row is meant to be
+ * typed into immediately, and appending would put it below the fold on a long
+ * receipt. `arrayUnion` can only append, so the order is written explicitly
+ * from the caller's current view.
+ */
+export async function fsAddItem(
+  id: string,
+  item: ReceiptItem,
+  currentOrder: string[]
+) {
   const { id: itemId, assignedTo, ...fields } = item;
   await updateDoc(receiptRef(id), {
     [`items.${itemId}`]: fields,
-    itemOrder: arrayUnion(itemId),
+    itemOrder: [itemId, ...currentOrder.filter((i) => i !== itemId)],
     ...(assignedTo.length > 0 && { [`assignments.${itemId}`]: assignedTo }),
   });
 }
@@ -225,7 +245,7 @@ export async function fsUpdateCharge(
     const snap = await tx.get(ref);
     const raw = snap.data();
     if (!raw) throw new Error("Receipt not found");
-    const { charges, tip } = normalizeReceiptMoney(raw, []);
+    const { charges, tip } = normalizeReceiptMoney(raw);
     tx.update(ref, {
       charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),
       tip,
@@ -239,7 +259,7 @@ export async function fsDeleteCharge(id: string, chargeId: string) {
     const snap = await tx.get(ref);
     const raw = snap.data();
     if (!raw) throw new Error("Receipt not found");
-    const { charges, tip } = normalizeReceiptMoney(raw, []);
+    const { charges, tip } = normalizeReceiptMoney(raw);
     tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId), tip });
   });
 }
@@ -250,7 +270,7 @@ export async function fsSetTip(id: string, updates: Partial<Tip>) {
     const snap = await tx.get(ref);
     const raw = snap.data();
     if (!raw) throw new Error("Receipt not found");
-    const { charges, tip } = normalizeReceiptMoney(raw, []);
+    const { charges, tip } = normalizeReceiptMoney(raw);
     tx.update(ref, { charges, tip: { ...tip, ...updates } });
   });
 }

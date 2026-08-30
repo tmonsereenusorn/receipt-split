@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ReceiptDoc,
   ReceiptItem,
@@ -68,11 +68,13 @@ export function useFirestoreReceipt(receiptId: string) {
     write.catch(() => setError(`Couldn't ${whatFailed}. Check your connection.`));
   }, []);
 
-  const items = data?.items ?? [];
-  const people = data?.people ?? [];
-  // Recomputed on every render rather than stored, so a legacy document is
-  // converted on each read and no consumer can see the pre-charges shape.
-  const { charges, tip } = normalizeReceiptMoney(data, items);
+  // Memoised because these feed useCallback dependency arrays. Without a stable
+  // identity the fallback allocates a new array every render, so every callback
+  // is recreated every render — churn, not staleness, since each is already in
+  // its dependency list.
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
+  const people = useMemo(() => data?.people ?? [], [data?.people]);
+  const { charges, tip } = useMemo(() => normalizeReceiptMoney(data), [data]);
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
@@ -94,9 +96,12 @@ export function useFirestoreReceipt(receiptId: string) {
         priceCents,
         assignedTo: [],
       };
-      dispatch(fsAddItem(receiptId, item), "add that item");
+      dispatch(
+        fsAddItem(receiptId, item, items.map((i) => i.id)),
+        "add that item"
+      );
     },
-    [receiptId, dispatch]
+    [receiptId, items, dispatch]
   );
 
   const updateItem = useCallback(

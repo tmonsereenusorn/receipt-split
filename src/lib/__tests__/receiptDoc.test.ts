@@ -21,24 +21,13 @@ const BASE = {
   createdAt: 0,
 };
 
-describe("normalizeStoredReceipt — legacy array documents", () => {
-  it("keeps items in their stored order", () => {
-    const doc = {
-      ...BASE,
-      items: [item("a", 100), item("b", 200), item("c", 300)],
-    };
+describe("normalizeStoredReceipt — unsupported legacy documents", () => {
+  it("reads a pre-keyed array document as empty rather than migrating it", () => {
+    // Support was dropped deliberately: carrying the migration caused three
+    // separate data-loss defects. Empty is visible; wrong numbers are not.
+    const doc = { ...BASE, items: [item("a", 100), item("b", 200)] };
 
-    const result = normalizeStoredReceipt(doc);
-
-    expect(result.items.map((i) => i.id)).toEqual(["a", "b", "c"]);
-  });
-
-  it("lifts assignedTo off each item", () => {
-    const doc = { ...BASE, items: [item("a", 100, ["p1", "p2"])] };
-
-    const result = normalizeStoredReceipt(doc);
-
-    expect(result.items[0].assignedTo).toEqual(["p1", "p2"]);
+    expect(normalizeStoredReceipt(doc).items).toEqual([]);
   });
 });
 

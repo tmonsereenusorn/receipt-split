@@ -1,4 +1,4 @@
-import { ReceiptDoc, ReceiptItem } from "@/types";
+import { initialTip, ReceiptDoc, ReceiptItem } from "@/types";
 
 /**
  * How a receipt is stored.
@@ -37,10 +37,16 @@ function isStoredItem(value: unknown): value is StoredItem {
   );
 }
 
-function isLegacyItem(value: unknown): value is ReceiptItem {
-  return (
-    isStoredItem(value) && typeof (value as ReceiptItem).id === "string"
-  );
+function normalizeTipField(raw: unknown): ReceiptDoc["tip"] {
+  const tip = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<
+    ReceiptDoc["tip"]
+  >;
+  return {
+    cents: typeof tip.cents === "number" ? tip.cents : initialTip.cents,
+    isPercent:
+      typeof tip.isPercent === "boolean" ? tip.isPercent : initialTip.isPercent,
+    percent: typeof tip.percent === "number" ? tip.percent : initialTip.percent,
+  };
 }
 
 function assignedFor(
@@ -53,13 +59,10 @@ function assignedFor(
 }
 
 /**
- * Read a stored receipt in whatever shape it is in.
+ * Read a stored receipt, guarding the storage boundary.
  *
- * Documents written before this change store `items` as an array with
- * `assignedTo` inline. They convert here at the read boundary, so no migration
- * job is needed and a touched document self-heals when it is next written.
- *
- * The in-memory shape is unchanged — an ordered `ReceiptItem[]` — so the
+ * Receipts written before items were keyed are no longer supported and read as
+ * empty. The in-memory shape is unchanged — an ordered `ReceiptItem[]` — so the
  * calculator, components, and exporters are untouched by any of this.
  */
 export function normalizeStoredReceipt(raw: unknown): ReceiptDoc {
@@ -68,7 +71,7 @@ export function normalizeStoredReceipt(raw: unknown): ReceiptDoc {
     unknown
   >;
 
-  const items = legacyOrKeyedItems(doc);
+  const items = keyedItems(doc);
 
   return {
     restaurantName:
@@ -79,7 +82,9 @@ export function normalizeStoredReceipt(raw: unknown): ReceiptDoc {
     charges: Array.isArray(doc.charges)
       ? (doc.charges as ReceiptDoc["charges"])
       : [],
-    tip: doc.tip as ReceiptDoc["tip"],
+    // Checked like every sibling rather than cast. Relying on the hook to
+    // re-derive the tip downstream made two modules silently interdependent.
+    tip: normalizeTipField(doc.tip),
     imageDataUrl:
       typeof doc.imageDataUrl === "string" ? doc.imageDataUrl : null,
     ocrText: typeof doc.ocrText === "string" ? doc.ocrText : null,
@@ -87,17 +92,10 @@ export function normalizeStoredReceipt(raw: unknown): ReceiptDoc {
   };
 }
 
-function legacyOrKeyedItems(doc: Record<string, unknown>): ReceiptItem[] {
-  // Legacy: an array of items carrying their own assignedTo.
-  if (Array.isArray(doc.items)) {
-    return doc.items.filter(isLegacyItem).map((item) => ({
-      id: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      priceCents: item.priceCents,
-      assignedTo: Array.isArray(item.assignedTo) ? item.assignedTo : [],
-    }));
-  }
+function keyedItems(doc: Record<string, unknown>): ReceiptItem[] {
+  // An array here is a pre-keyed receipt, which is no longer supported. It
+  // reads as empty rather than being migrated.
+  if (Array.isArray(doc.items)) return [];
 
   const stored = (typeof doc.items === "object" && doc.items !== null
     ? doc.items
