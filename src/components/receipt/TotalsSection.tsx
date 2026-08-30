@@ -24,7 +24,11 @@ interface TotalsSectionProps {
   onRowExpand?: () => void;
 }
 
-const TIP_PRESETS = [15, 18, 20, 25];
+/**
+ * Common tip percentages. 0 is included because tipping is not customary in
+ * much of the world; see SetupSection.
+ */
+const TIP_PRESETS = [0, 15, 18, 20, 25];
 
 /**
  * A charge row. Cash only — charges have no percent mode, so this is far

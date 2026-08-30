@@ -76,8 +76,14 @@ function PenAnswer({
   );
 }
 
-/** Common tip percentages, matching the TIP row on the receipt page. */
-const TIP_PRESETS = [15, 18, 20, 25];
+/**
+ * Common tip percentages, matching the TIP row on the receipt page.
+ *
+ * 0 is a first-class option, not an afterthought: tipping is not customary in
+ * much of the world, and the app already picks its currency from the locale, so
+ * a non-tipping region is an ordinary case rather than an edge one.
+ */
+const TIP_PRESETS = [0, 15, 18, 20, 25];
 
 /**
  * A name row. Carries its own id so React can keep DOM nodes attached to rows
