@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ReceiptDoc,
   ReceiptItem,
@@ -10,16 +10,14 @@ import {
 import { normalizeReceiptMoney } from "@/lib/charges";
 import {
   subscribeToReceipt,
-  fsSetItems,
   fsAddItem,
   fsUpdateItem,
   fsDeleteItem,
-  fsMoveItem,
-  fsReorderItem,
+  fsSetItemOrder,
   fsAddPerson,
   fsUpdatePerson,
   fsDeletePerson,
-  fsToggleAssignment,
+  fsSetAssignment,
   fsAddCharge,
   fsUpdateCharge,
   fsDeleteCharge,
@@ -34,7 +32,13 @@ import { PERSON_COLORS } from "@/lib/constants";
 export function useFirestoreReceipt(receiptId: string) {
   const [data, setData] = useState<ReceiptDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  // Two distinct failures, deliberately not sharing state. A subscription
+  // failure is fatal — there is no receipt to show. A failed write is not: the
+  // receipt is intact and Firestore's cache has already applied the change
+  // locally, so replacing the screen would hide working data behind an error
+  // the user cannot dismiss.
   const [error, setError] = useState<string | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -55,23 +59,35 @@ export function useFirestoreReceipt(receiptId: string) {
     return unsubscribe;
   }, [receiptId]);
 
-  const items = data?.items ?? [];
-  const people = data?.people ?? [];
-  // Recomputed on every render rather than stored, so a legacy document is
-  // converted on each read and no consumer can see the pre-charges shape.
-  const { charges, tip } = normalizeReceiptMoney(data, items);
+  /**
+   * Dispatch a write.
+   *
+   * There is no optimistic update here on purpose. `updateDoc` is applied to
+   * Firestore's local cache the instant it is issued and the listener fires
+   * immediately, so a second optimistic layer would only race the first — which
+   * is the bug this replaced. Failures surface rather than being dropped: the
+   * cache has already applied the change, so a permanent failure would
+   * otherwise leave the UI silently disagreeing with the server.
+   */
+  const dispatch = useCallback((write: Promise<void>, whatFailed: string) => {
+    write.catch(() =>
+      setWriteError(`Couldn't ${whatFailed}. Check your connection.`)
+    );
+  }, []);
+
+  const dismissWriteError = useCallback(() => setWriteError(null), []);
+
+  // Memoised because these feed useCallback dependency arrays. Without a stable
+  // identity the fallback allocates a new array every render, so every callback
+  // is recreated every render — churn, not staleness, since each is already in
+  // its dependency list.
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
+  const people = useMemo(() => data?.people ?? [], [data?.people]);
+  const { charges, tip } = useMemo(() => normalizeReceiptMoney(data), [data]);
   const imageDataUrl = data?.imageDataUrl ?? null;
   const ocrText = data?.ocrText ?? null;
   const restaurantName = data?.restaurantName ?? null;
   const currency = data?.currency ?? "USD";
-
-  const setItems = useCallback(
-    (newItems: ReceiptItem[]) => {
-      setData(prev => prev ? { ...prev, items: newItems } : prev);
-      fsSetItems(receiptId, newItems);
-    },
-    [receiptId]
-  );
 
   const addItem = useCallback(
     (name: string, quantity: number, priceCents: number) => {
@@ -82,59 +98,46 @@ export function useFirestoreReceipt(receiptId: string) {
         priceCents,
         assignedTo: [],
       };
-      setData(prev => prev ? { ...prev, items: [item, ...prev.items] } : prev);
-      fsAddItem(receiptId, item);
+      dispatch(fsAddItem(receiptId, item), "add that item");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const updateItem = useCallback(
     (id: string, updates: Partial<Omit<ReceiptItem, "id">>) => {
-      setData(prev => prev ? { ...prev, items: prev.items.map(item => item.id === id ? { ...item, ...updates } : item) } : prev);
-      fsUpdateItem(receiptId, id, updates);
+      dispatch(fsUpdateItem(receiptId, id, updates), "save that change");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const deleteItem = useCallback(
     (id: string) => {
-      setData(prev => prev ? { ...prev, items: prev.items.filter(item => item.id !== id) } : prev);
-      fsDeleteItem(receiptId, id);
+      dispatch(fsDeleteItem(receiptId, id), "delete that item");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const moveItem = useCallback(
     (id: string, direction: "up" | "down") => {
-      setData(prev => {
-        if (!prev) return prev;
-        const items = [...prev.items];
-        const idx = items.findIndex(i => i.id === id);
-        if (idx === -1) return prev;
-        const swap = direction === "up" ? idx - 1 : idx + 1;
-        if (swap < 0 || swap >= items.length) return prev;
-        [items[idx], items[swap]] = [items[swap], items[idx]];
-        return { ...prev, items };
-      });
-      fsMoveItem(receiptId, id, direction);
+      const order = items.map((i) => i.id);
+      const idx = order.indexOf(id);
+      const swap = direction === "up" ? idx - 1 : idx + 1;
+      if (idx === -1 || swap < 0 || swap >= order.length) return;
+      [order[idx], order[swap]] = [order[swap], order[idx]];
+      dispatch(fsSetItemOrder(receiptId, order), "reorder the items");
     },
-    [receiptId]
+    [receiptId, items, dispatch]
   );
 
   const reorderItem = useCallback(
     (itemId: string, newIndex: number) => {
-      setData(prev => {
-        if (!prev) return prev;
-        const items = [...prev.items];
-        const oldIndex = items.findIndex(i => i.id === itemId);
-        if (oldIndex === -1) return prev;
-        const [item] = items.splice(oldIndex, 1);
-        items.splice(newIndex, 0, item);
-        return { ...prev, items };
-      });
-      fsReorderItem(receiptId, itemId, newIndex);
+      const order = items.map((i) => i.id);
+      const oldIndex = order.indexOf(itemId);
+      if (oldIndex === -1) return;
+      order.splice(newIndex, 0, ...order.splice(oldIndex, 1));
+      dispatch(fsSetItemOrder(receiptId, order), "reorder the items");
     },
-    [receiptId]
+    [receiptId, items, dispatch]
   );
 
   const addPerson = useCallback(
@@ -145,53 +148,38 @@ export function useFirestoreReceipt(receiptId: string) {
         name,
         color,
       };
-      setData(prev => prev ? { ...prev, people: [...prev.people, person] } : prev);
-      fsAddPerson(receiptId, person);
+      dispatch(fsAddPerson(receiptId, person), "add that person");
     },
-    [receiptId, people.length]
+    [receiptId, people.length, dispatch]
   );
 
   const updatePerson = useCallback(
     (id: string, name: string) => {
-      setData(prev => prev ? { ...prev, people: prev.people.map(p => p.id === id ? { ...p, name } : p) } : prev);
-      fsUpdatePerson(receiptId, id, name);
+      dispatch(fsUpdatePerson(receiptId, id, name), "rename that person");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const deletePerson = useCallback(
     (id: string) => {
-      setData(prev => prev ? {
-        ...prev,
-        people: prev.people.filter(p => p.id !== id),
-        items: prev.items.map(item => ({
-          ...item,
-          assignedTo: item.assignedTo.filter(pid => pid !== id),
-        })),
-      } : prev);
-      fsDeletePerson(receiptId, id);
+      dispatch(fsDeletePerson(receiptId, id), "remove that person");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const toggleAssignment = useCallback(
     (itemId: string, personId: string) => {
-      setData(prev => prev ? {
-        ...prev,
-        items: prev.items.map(item => {
-          if (item.id !== itemId) return item;
-          const has = item.assignedTo.includes(personId);
-          return {
-            ...item,
-            assignedTo: has
-              ? item.assignedTo.filter(pid => pid !== personId)
-              : [...item.assignedTo, personId],
-          };
-        }),
-      } : prev);
-      fsToggleAssignment(receiptId, itemId, personId);
+      // The UI asks to flip, but the write states the intended result, so a
+      // duplicate click is a no-op rather than a reversal.
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
+      const assigned = !item.assignedTo.includes(personId);
+      dispatch(
+        fsSetAssignment(receiptId, itemId, personId, assigned),
+        "update that assignment"
+      );
     },
-    [receiptId]
+    [receiptId, items, dispatch]
   );
 
   const addCharge = useCallback(
@@ -201,87 +189,55 @@ export function useFirestoreReceipt(receiptId: string) {
         label,
         amountCents,
       };
-      setData(prev => {
-        if (!prev) return prev;
-        // Build from the normalized shape, not prev.charges: on a legacy
-        // document prev.charges is undefined, and writing a bare array would
-        // send the next read down the new-shape branch, discarding the migrated
-        // charges instead of merging with them. Mirrors the transaction side.
-        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
-        return { ...prev, charges: [...charges, charge], tip };
-      });
-      fsAddCharge(receiptId, charge);
+      dispatch(fsAddCharge(receiptId, charge), "add that charge");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const updateCharge = useCallback(
     (chargeId: string, updates: Partial<Omit<ReceiptCharge, "id">>) => {
-      setData(prev => {
-        if (!prev) return prev;
-        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
-        return {
-          ...prev,
-          charges: charges.map(c => (c.id === chargeId ? { ...c, ...updates } : c)),
-          tip,
-        };
-      });
-      fsUpdateCharge(receiptId, chargeId, updates);
+      dispatch(fsUpdateCharge(receiptId, chargeId, updates), "save that charge");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const deleteCharge = useCallback(
     (chargeId: string) => {
-      setData(prev => {
-        if (!prev) return prev;
-        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
-        return { ...prev, charges: charges.filter(c => c.id !== chargeId), tip };
-      });
-      fsDeleteCharge(receiptId, chargeId);
+      dispatch(fsDeleteCharge(receiptId, chargeId), "delete that charge");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
 
   const setTip = useCallback(
     (updates: Partial<Tip>) => {
-      setData(prev => {
-        if (!prev) return prev;
-        // charges must be written too: without it a legacy document still has no
-        // charges key, so the next normalize takes the taxTip branch and throws
-        // this tip away.
-        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
-        return { ...prev, charges, tip: { ...tip, ...updates } };
-      });
-      fsSetTip(receiptId, updates);
+      dispatch(fsSetTip(receiptId, updates), "update the tip");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
-
 
   const setCurrency = useCallback(
     (currency: string) => {
-      setData(prev => prev ? { ...prev, currency } : prev);
-      fsSetCurrency(receiptId, currency);
+      dispatch(fsSetCurrency(receiptId, currency), "change the currency");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
+
 
   const setRestaurantName = useCallback(
     (name: string | null) => {
-      setData(prev => prev ? { ...prev, restaurantName: name } : prev);
-      fsSetRestaurantName(receiptId, name);
+      dispatch(fsSetRestaurantName(receiptId, name), "rename the receipt");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
+
 
   const setOcrText = useCallback(
     (text: string) => {
-      setData(prev => prev ? { ...prev, ocrText: text } : prev);
-      fsSetOcrText(receiptId, text);
+      dispatch(fsSetOcrText(receiptId, text), "save the scan text");
     },
-    [receiptId]
+    [receiptId, dispatch]
   );
+
 
   return {
     items,
@@ -294,7 +250,8 @@ export function useFirestoreReceipt(receiptId: string) {
     currency,
     loading,
     error,
-    setItems,
+    writeError,
+    dismissWriteError,
     addItem,
     updateItem,
     deleteItem,
