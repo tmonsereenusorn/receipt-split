@@ -8,7 +8,8 @@
 Removing a person is effectively unusable on a touch device, and the failure is worse than
 "hard to find".
 
-`PeopleSection.tsx` wraps the rename and remove controls in:
+`PeopleBar.tsx` — the component the receipt page actually renders — wraps the rename and
+remove controls in:
 
 ```
 opacity-0 group-hover:opacity-100
@@ -78,11 +79,18 @@ answered for the wrong person.
 
 ## Implementation
 
-`src/components/receipt/PeopleSection.tsx` only. The hook, the Firestore layer, and
+`src/components/receipt/PeopleBar.tsx` — **the component `ReceiptPageClient` imports**. A
+second, near-identical `PeopleSection.tsx` existed with no importers; the first attempt at this
+change edited that one, so every part of it was invisible to users while the build, the
+typechecker, and the tests all passed. That file is deleted as part of this work: two components
+for one concern is what made the mistake possible, and leaving it would preserve the trap. The hook, the Firestore layer, and
 `fsDeletePerson` are unchanged — this is an affordance problem, not a data one.
 
 - delete the `opacity-0 group-hover:opacity-100` block and its two glyph buttons
-- add `confirmingRemove: boolean` local state, reset on `activePerson` change
+- add `confirmingFor: string | null` — the person being confirmed, not a boolean — and clear it
+  on **every** selection change. Comparing it to the active person only *suppresses* a stale
+  confirmation; deselecting and re-selecting the same person would otherwise restore an armed
+  delete exactly where `rename` normally sits
 - render the action row when `activePerson` is set, replacing the bare assign hint
 - rename reuses the existing `startEdit` inline flow
 - remove calls the existing `onDelete`
@@ -95,6 +103,10 @@ to `src/lib/people.ts`:
 
 - `countAssignedItems(items, personId)` — counts items the person is on; zero when unassigned;
   unaffected by other people's assignments
+
+A passing suite is not evidence that a component change reached the app. These tests cover the
+pure helper, which was correct while the component work landed in a file nothing imported.
+Confirm the render path by grepping for the importer, not by the test count.
 
 The interaction itself is verified by reading and by exercising the built app at a phone
 viewport, since there is no jsdom to render into.

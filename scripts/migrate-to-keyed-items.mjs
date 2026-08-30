@@ -21,19 +21,28 @@ import { resolve } from "node:path";
 
 const APPLY = process.argv.includes("--apply");
 
-const env = Object.fromEntries(
-  readFileSync(resolve(process.cwd(), ".env.local"), "utf8")
-    .split("\n")
-    .filter((l) => l.includes("="))
-    .map((l) => {
-      const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, "")];
-    })
-);
-
-const PROJECT = env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-const KEY = env.NEXT_PUBLIC_FIREBASE_API_KEY;
-const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
+/**
+ * Read at call time, not at import.
+ *
+ * At module scope this threw for anyone without a local .env.local — including
+ * a fresh clone and CI — which broke the test that imports this file's pure
+ * conversion functions, and made the suite's own pass count unreproducible.
+ */
+function firestoreConfig() {
+  const env = Object.fromEntries(
+    readFileSync(resolve(process.cwd(), ".env.local"), "utf8")
+      .split("\n")
+      .filter((l) => l.includes("="))
+      .map((l) => {
+        const i = l.indexOf("=");
+        return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, "")];
+      })
+  );
+  return {
+    key: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    base: `https://firestore.googleapis.com/v1/projects/${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/(default)/documents`,
+  };
+}
 
 /** Firestore REST value -> plain JS. */
 function decode(v) {
@@ -133,6 +142,7 @@ export function moneyFromTaxTip(taxTip, items) {
 }
 
 export async function main() {
+  const { key: KEY, base: BASE } = firestoreConfig();
   const res = await fetch(`${BASE}/receipts?key=${KEY}&pageSize=300`);
   const body = await res.json();
   if (body.error) throw new Error(body.error.message);

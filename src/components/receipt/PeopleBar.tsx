@@ -1,5 +1,6 @@
 "use client";
 
+import { countAssignedItems } from "@/lib/people";
 import { useState } from "react";
 import { Person, ReceiptItem } from "@/types";
 
@@ -38,7 +39,17 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
     setEditingId(null);
   }
 
+  // Holds WHICH person is being confirmed. Cleared whenever the selection
+  // changes — suppressing by comparison alone was not enough: deselecting and
+  // re-selecting the same person restored an armed delete where rename sits.
+  const [confirmingFor, setConfirmingFor] = useState<string | null>(null);
+
   const activePeople = people.find((p) => p.id === activePerson);
+  const confirmingRemove =
+    activePeople !== undefined && confirmingFor === activePeople.id;
+  const assignedCount = activePeople
+    ? countAssignedItems(items, activePeople.id)
+    : 0;
   const showAddInput = newName !== "" && !editingId;
 
   return (
@@ -80,7 +91,10 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                 <div key={person.id} className="group relative shrink-0">
                   <button
                     type="button"
-                    onClick={() => onSelectPerson(isActive ? null : person.id)}
+                    onClick={() => {
+                      setConfirmingFor(null);
+                      onSelectPerson(isActive ? null : person.id);
+                    }}
                     className="relative block h-8 max-w-[8rem] truncate rounded-full px-3 font-hand text-base font-bold leading-8 transition-all"
                     style={
                       isActive
@@ -106,25 +120,6 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
                       {itemCount}
                     </span>
                   )}
-                  {/* Edit/delete on hover */}
-                  <div className="absolute -right-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); startEdit(person); }}
-                      className="text-xs text-ink-faded transition-colors hover:text-ink"
-                      aria-label={`Edit ${person.name}`}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onDelete(person.id); }}
-                      className="text-xs text-ink-faded transition-colors hover:text-accent"
-                      aria-label={`Remove ${person.name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
                 </div>
               );
             })}
@@ -169,12 +164,75 @@ export function PeopleBar({ people, items, activePerson, onSelectPerson, onAdd, 
 
       {/* Active person hint */}
       {activePeople && (
-        <p
-          className="mt-1 text-center font-hand text-base"
-          style={{ color: activePeople.color }}
-        >
-          tap items to assign to {activePeople.name}
-        </p>
+        <div className="mt-2 text-center">
+          <p
+            className="font-hand text-lg"
+            style={{ color: activePeople.color }}
+          >
+            tap items to assign to {activePeople.name}
+          </p>
+
+          {/* Per-person actions live here rather than on the pill: this line
+              already responds to selection, sits outside the tap-to-assign
+              path, and gives text-sized targets instead of glyphs that were
+              invisible on touch yet still tappable. */}
+          <div className="no-print mt-1 flex items-center justify-center gap-1 font-receipt text-base">
+            {confirmingRemove ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDelete(activePeople.id);
+                    setConfirmingFor(null);
+                  }}
+                  aria-label={
+                    assignedCount > 0
+                      ? `Confirm removing ${activePeople.name} from ${assignedCount} item${assignedCount === 1 ? "" : "s"}`
+                      : `Confirm removing ${activePeople.name}`
+                  }
+                  className="px-3 py-2 text-accent underline"
+                >
+                  {assignedCount > 0
+                    ? `really? removes ${activePeople.name} from ${assignedCount} item${assignedCount === 1 ? "" : "s"}`
+                    : "really?"}
+                </button>
+                <span className="text-ink-faded" aria-hidden="true">
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingFor(null)}
+                  aria-label={`Keep ${activePeople.name}`}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-ink"
+                >
+                  cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => startEdit(activePeople)}
+                  aria-label={`Rename ${activePeople.name}`}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-ink"
+                >
+                  rename
+                </button>
+                <span className="text-ink-faded" aria-hidden="true">
+                  ·
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingFor(activePeople.id)}
+                  aria-label={`Remove ${activePeople.name}`}
+                  className="px-3 py-2 text-ink-muted underline transition-colors hover:text-accent"
+                >
+                  remove
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
       {people.length > 0 && items.length > 0 && !activePerson &&
         items.some((item) => item.assignedTo.length === 0) && (
