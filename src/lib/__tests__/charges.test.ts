@@ -204,7 +204,13 @@ describe("chargesFromExtraction", () => {
   it("maps a parsed tip to fixed cash", () => {
     const result = chargesFromExtraction({ charges: [], tipCents: 1250 });
 
-    expect(result?.tip).toEqual({ cents: 1250, isPercent: false, percent: 0 });
+    // percent keeps the default so toggling to % offers the suggestion rather
+    // than 0%; the amount itself comes from cents with isPercent false.
+    expect(result?.tip).toEqual({
+      cents: 1250,
+      isPercent: false,
+      percent: initialTip.percent,
+    });
   });
 
   it("leaves the tip untouched when the receipt reported none", () => {
@@ -224,5 +230,40 @@ describe("chargesFromExtraction", () => {
     });
 
     expect(result?.tip).toBeUndefined();
+  });
+});
+
+describe("optimistic writes on a legacy document", () => {
+  // The hook builds optimistic state from normalizeReceiptMoney rather than
+  // from doc.charges. Writing a bare array sent the next read down the
+  // new-shape branch and discarded the migrated charges entirely.
+  const legacy = { taxTip: { ...LEGACY_BASE, taxCents: 700 } };
+
+  it("keeps migrated charges when a new charge is appended", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacy, items(10000));
+    const optimistic = {
+      ...legacy,
+      charges: [...charges, { id: "new", label: "Corkage", amountCents: 1000 }],
+      tip,
+    };
+
+    const after = normalizeReceiptMoney(optimistic, items(10000));
+
+    expect(after.charges.map((c) => c.label)).toEqual(["Tax", "Corkage"]);
+    expect(after.charges.reduce((s, c) => s + c.amountCents, 0)).toBe(1700);
+  });
+
+  it("applies an optimistic tip change instead of discarding it", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacy, items(10000));
+    const optimistic = {
+      ...legacy,
+      charges,
+      tip: { ...tip, isPercent: false, cents: 5000 },
+    };
+
+    const after = normalizeReceiptMoney(optimistic, items(10000));
+
+    expect(after.tip.cents).toBe(5000);
+    expect(after.tip.isPercent).toBe(false);
   });
 });

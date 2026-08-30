@@ -145,26 +145,28 @@ function parseAndValidate(text: string): ParseResult {
       typeof (charge as ExtractedCharge).label === "string" &&
       (charge as ExtractedCharge).label.trim().length > 0 &&
       typeof (charge as ExtractedCharge).amountCents === "number" &&
-      Number.isFinite((charge as ExtractedCharge).amountCents) &&
-      (charge as ExtractedCharge).amountCents >= 0
+      Number.isFinite((charge as ExtractedCharge).amountCents)
   );
 
-  // Zero-amount charges are valid input but add nothing, so they are not kept —
-  // storing them would render a $0.00 row. They are not counted as dropped.
+  // Zero-amount charges are valid input but change nothing, so they are not
+  // kept — storing one would render a $0.00 row. Negative amounts ARE kept: a
+  // discount is a real receipt line, and dropping it would overstate the total.
   const charges: ExtractedCharge[] = validCharges
     .map((charge) => ({
       label: charge.label.trim(),
       amountCents: Math.round(charge.amountCents),
     }))
-    .filter((charge) => charge.amountCents > 0);
+    .filter((charge) => charge.amountCents !== 0);
 
   return {
     receipt: { restaurantName, items, charges, tipCents, currency },
-    // An invalid charge counts as dropped, surfacing as a `partial` failure.
-    // Silently discarding one would undercount the total, which is the exact
-    // failure this feature exists to fix.
-    dropped:
-      parsed.items.length - items.length + (rawCharges.length - validCharges.length),
+    // Only unusable ITEMS make a scan partial. A malformed charge is dropped and
+    // the scan still succeeds: `partial` is unrecoverable — the same photo
+    // reproduces it on every retry (see interpretExtraction below) — so failing
+    // the whole scan over one bad charge line would make that receipt
+    // permanently unscannable. A missing charge is visible in the totals and can
+    // be re-added by hand; a failed scan cannot be recovered at all.
+    dropped: parsed.items.length - items.length,
   };
 }
 

@@ -162,6 +162,9 @@ export function chargesFromExtraction(
 
   return {
     charges,
-    tip: { cents: result.tipCents, isPercent: false, percent: 0 },
+    // percent keeps its default rather than dropping to 0: the amount comes from
+    // `cents` with isPercent false, so zeroing percent would only mean that
+    // toggling the row to % shows 0% instead of the app's suggestion.
+    tip: { cents: result.tipCents, isPercent: false, percent: initialTip.percent },
   };
 }

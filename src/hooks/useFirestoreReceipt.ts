@@ -201,9 +201,15 @@ export function useFirestoreReceipt(receiptId: string) {
         label,
         amountCents,
       };
-      setData(prev =>
-        prev ? { ...prev, charges: [...(prev.charges ?? []), charge] } : prev
-      );
+      setData(prev => {
+        if (!prev) return prev;
+        // Build from the normalized shape, not prev.charges: on a legacy
+        // document prev.charges is undefined, and writing a bare array would
+        // send the next read down the new-shape branch, discarding the migrated
+        // charges instead of merging with them. Mirrors the transaction side.
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges: [...charges, charge], tip };
+      });
       fsAddCharge(receiptId, charge);
     },
     [receiptId]
@@ -211,16 +217,15 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const updateCharge = useCallback(
     (chargeId: string, updates: Partial<Omit<ReceiptCharge, "id">>) => {
-      setData(prev =>
-        prev
-          ? {
-              ...prev,
-              charges: (prev.charges ?? []).map(c =>
-                c.id === chargeId ? { ...c, ...updates } : c
-              ),
-            }
-          : prev
-      );
+      setData(prev => {
+        if (!prev) return prev;
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return {
+          ...prev,
+          charges: charges.map(c => (c.id === chargeId ? { ...c, ...updates } : c)),
+          tip,
+        };
+      });
       fsUpdateCharge(receiptId, chargeId, updates);
     },
     [receiptId]
@@ -228,11 +233,11 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const deleteCharge = useCallback(
     (chargeId: string) => {
-      setData(prev =>
-        prev
-          ? { ...prev, charges: (prev.charges ?? []).filter(c => c.id !== chargeId) }
-          : prev
-      );
+      setData(prev => {
+        if (!prev) return prev;
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges: charges.filter(c => c.id !== chargeId), tip };
+      });
       fsDeleteCharge(receiptId, chargeId);
     },
     [receiptId]
@@ -240,7 +245,14 @@ export function useFirestoreReceipt(receiptId: string) {
 
   const setTip = useCallback(
     (updates: Partial<Tip>) => {
-      setData(prev => (prev ? { ...prev, tip: { ...prev.tip, ...updates } } : prev));
+      setData(prev => {
+        if (!prev) return prev;
+        // charges must be written too: without it a legacy document still has no
+        // charges key, so the next normalize takes the taxTip branch and throws
+        // this tip away.
+        const { charges, tip } = normalizeReceiptMoney(prev, prev.items ?? []);
+        return { ...prev, charges, tip: { ...tip, ...updates } };
+      });
       fsSetTip(receiptId, updates);
     },
     [receiptId]

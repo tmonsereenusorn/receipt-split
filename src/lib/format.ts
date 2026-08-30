@@ -1,5 +1,9 @@
 import { PersonBreakdown, ReceiptCharge, ReceiptItem, Tip } from "@/types";
-import { getEffectiveTipCents, getSubtotalCents } from "./calculator";
+import {
+  getChargesTotalCents,
+  getEffectiveTipCents,
+  getSubtotalCents,
+} from "./calculator";
 import { formatMoney, formatMoneyRaw } from "./currency";
 
 /**
@@ -14,14 +18,16 @@ export function generateShareText(
 ): string {
   const subtotal = getSubtotalCents(items);
   const tipCents = getEffectiveTipCents(tip, subtotal);
-  const chargesTotal = charges.reduce((sum, c) => sum + c.amountCents, 0);
+  const chargesTotal = getChargesTotalCents(charges);
   const grandTotal = subtotal + chargesTotal + tipCents;
 
   const lines: string[] = [
     "Shplit",
     "─".repeat(30),
     `Subtotal: ${formatMoney(subtotal, currency)}`,
-    ...charges.map((c) => `${c.label}: ${formatMoney(c.amountCents, currency)}`),
+    ...charges
+      .filter((c) => c.amountCents !== 0)
+      .map((c) => `${c.label}: ${formatMoney(c.amountCents, currency)}`),
     `Tip: ${formatMoney(tipCents, currency)}`,
     `Total: ${formatMoney(grandTotal, currency)}`,
     "",
@@ -37,7 +43,8 @@ export function generateShareText(
       lines.push(`  • ${pi.item.name}${splitNote}: ${formatMoney(pi.shareCents, currency)}`);
     }
     for (const share of b.chargeShares) {
-      if (share.shareCents > 0) {
+      // !== 0 rather than > 0: a discount is a negative charge and must show.
+      if (share.shareCents !== 0) {
         lines.push(`  • ${share.label}: ${formatMoney(share.shareCents, currency)}`);
       }
     }
@@ -62,7 +69,7 @@ export function generateCsv(
 ): string {
   const subtotal = getSubtotalCents(items);
   const tipCents = getEffectiveTipCents(tip, subtotal);
-  const chargesTotal = charges.reduce((sum, c) => sum + c.amountCents, 0);
+  const chargesTotal = getChargesTotalCents(charges);
 
   const rows: string[][] = [];
 
@@ -88,17 +95,23 @@ export function generateCsv(
   // Subtotal row
   rows.push(["Subtotal", "", "", formatMoneyRaw(subtotal, currency), ...breakdowns.map((b) => formatMoneyRaw(b.subtotalCents, currency))]);
   // Tax row
-  charges.forEach((charge, index) => {
+  for (const charge of charges) {
+    if (charge.amountCents === 0) continue;
     rows.push([
       `"${charge.label.replace(/"/g, '""')}"`,
       "",
       "",
       formatMoneyRaw(charge.amountCents, currency),
+      // Matched by id, not array position: chargeShares carries chargeId for
+      // exactly this, and a positional lookup would silently zero a mismatch.
       ...breakdowns.map((b) =>
-        formatMoneyRaw(b.chargeShares[index]?.shareCents ?? 0, currency)
+        formatMoneyRaw(
+          b.chargeShares.find((s) => s.chargeId === charge.id)?.shareCents ?? 0,
+          currency
+        )
       ),
     ]);
-  });
+  }
   // Tip row
   rows.push(["Tip", "", "", formatMoneyRaw(tipCents, currency), ...breakdowns.map((b) => formatMoneyRaw(b.tipShareCents, currency))]);
   // Total row

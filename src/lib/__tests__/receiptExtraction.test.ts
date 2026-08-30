@@ -240,34 +240,48 @@ describe("interpretExtraction charges", () => {
     expect(result.data.charges).toEqual([]);
   });
 
-  it("fails as partial when a charge is invalid rather than dropping it silently", () => {
-    // Silently discarding a charge undercounts the total — the exact failure
-    // this whole feature exists to fix. It has to surface.
+  it("keeps the scan when a charge is malformed, dropping only that charge", () => {
+    // `partial` is unrecoverable — the same photo reproduces it — so failing the
+    // whole scan over one bad charge would make that receipt permanently
+    // unscannable. A missing charge is visible and can be re-added by hand.
     const result = interpretExtraction(
       "end_turn",
-      '{"items":[],"charges":[{"label":"Tax","amountCents":"five"}],"currency":"USD"}'
+      '{"items":[{"name":"Latte","quantity":1,"priceCents":450}],"charges":[{"label":"Tax","amountCents":40},{"label":"Bad","amountCents":"five"}],"currency":"USD"}'
     );
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.code).toBe("partial");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.items).toHaveLength(1);
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
   });
 
-  it("fails as partial when a charge has no label", () => {
+  it("drops a charge with no label but keeps the rest of the scan", () => {
     const result = interpretExtraction(
       "end_turn",
-      '{"items":[],"charges":[{"amountCents":537}],"currency":"USD"}'
+      '{"items":[],"charges":[{"amountCents":537},{"label":"Tax","amountCents":40}],"currency":"USD"}'
     );
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.code).toBe("partial");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
   });
 
-  it("fails as partial when a charge amount is negative", () => {
+  it("keeps a negative charge, because a discount is a real receipt line", () => {
+    // Dropping it would overstate the total — the wrong direction to be wrong in.
     const result = interpretExtraction(
       "end_turn",
-      '{"items":[],"charges":[{"label":"Discount","amountCents":-500}],"currency":"USD"}'
+      '{"items":[],"charges":[{"label":"Promo","amountCents":-500}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Promo", amountCents: -500 }]);
+  });
+
+  it("still fails as partial when an ITEM is unusable", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[{"name":"Latte","quantity":1,"priceCents":450},{"name":"Bad"}],"charges":[],"currency":"USD"}'
     );
 
     expect(result.ok).toBe(false);

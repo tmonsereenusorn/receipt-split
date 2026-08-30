@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { ReceiptCharge, ReceiptItem, Tip } from "@/types";
 import { formatMoney, currencySymbol } from "@/lib/currency";
-import { getSubtotalCents, getEffectiveTipCents } from "@/lib/calculator";
+import {
+  getSubtotalCents,
+  getEffectiveTipCents,
+  getChargesTotalCents,
+} from "@/lib/calculator";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { Section } from "./Section";
 
@@ -43,6 +47,7 @@ function ChargeRow({
   // call site) rather than a state-resetting effect, which the lint config
   // rejects.
   const [expanded, setExpanded] = useState(false);
+  const [localLabel, setLocalLabel] = useState(charge.label);
 
   const editable = Boolean(onUpdate);
 
@@ -67,20 +72,41 @@ function ChargeRow({
       </button>
 
       {expanded && editable && (
-        <div className="no-print flex items-center gap-2 pb-2 pt-1">
-          <span className="font-receipt text-sm text-ink-faded">{currencySymbol(currency)}</span>
-          <CurrencyInput
-            cents={charge.amountCents}
-            onChangeCents={(cents) => onUpdate?.({ amountCents: cents })}
-            className="w-20 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
+        <div className="no-print space-y-2 pb-2 pt-1">
+          {/* The label carries the charge's category — it is the whole reason
+              charges are generic — so it has to be editable, not just the
+              amount. */}
+          <input
+            type="text"
+            value={localLabel}
+            aria-label="Charge name"
+            placeholder="Charge name"
+            onChange={(e) => setLocalLabel(e.target.value)}
+            onBlur={() => {
+              const trimmed = localLabel.trim();
+              if (trimmed && trimmed !== charge.label) onUpdate?.({ label: trimmed });
+              else setLocalLabel(charge.label);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            className="w-full border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={onDelete}
-            className="ml-auto px-2 py-1 font-receipt text-sm text-ink-faded hover:text-ink"
-          >
-            remove
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="font-receipt text-sm text-ink-faded">{currencySymbol(currency)}</span>
+            <CurrencyInput
+              cents={charge.amountCents}
+              onChangeCents={(cents) => onUpdate?.({ amountCents: cents })}
+              className="w-20 border-b-2 border-ink-faded bg-transparent px-1 py-1 font-receipt text-lg text-ink focus:border-ink focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={onDelete}
+              className="ml-auto px-2 py-1 font-receipt text-sm text-ink-faded hover:text-ink"
+            >
+              remove
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -97,7 +123,6 @@ function EditableTaxTipRow({
   onToggleMode,
   onChangePercent,
   onChangeCents,
-  collapseKey,
   onExpand,
 }: {
   label: string;
@@ -109,14 +134,12 @@ function EditableTaxTipRow({
   onToggleMode: (isPercent: boolean) => void;
   onChangePercent: (pct: number) => void;
   onChangeCents: (cents: number) => void;
-  collapseKey?: number;
   onExpand?: () => void;
 }) {
+  // Collapse happens by remounting on collapseKey (see the key prop at the call
+  // site), matching ChargeRow. The previous state-resetting effect was two of
+  // the repo's pre-existing lint errors.
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [collapseKey]);
   const [localPercent, setLocalPercent] = useState(String(percent));
   const isPercentFocused = useRef(false);
 
@@ -235,7 +258,7 @@ export function TotalsSection({
   onRowExpand,
 }: TotalsSectionProps) {
   const subtotal = getSubtotalCents(items);
-  const chargesTotal = charges.reduce((sum, c) => sum + c.amountCents, 0);
+  const chargesTotal = getChargesTotalCents(charges);
   const tipCents = getEffectiveTipCents(tip, subtotal);
   const total = subtotal + chargesTotal + tipCents;
 
@@ -267,6 +290,7 @@ export function TotalsSection({
 
         {onChangeTip ? (
           <EditableTaxTipRow
+            key={`tip-${collapseKey ?? 0}`}
             label="TIP"
             isPercent={tip.isPercent}
             percent={tip.percent}
@@ -276,7 +300,6 @@ export function TotalsSection({
             onToggleMode={(isPercent) => onChangeTip({ isPercent })}
             onChangePercent={(percent) => onChangeTip({ percent })}
             onChangeCents={(cents) => onChangeTip({ cents })}
-            collapseKey={collapseKey}
             onExpand={onRowExpand}
           />
         ) : (
@@ -294,7 +317,7 @@ export function TotalsSection({
         {onAddCharge && (
           <button
             type="button"
-            onClick={() => onAddCharge("Charge", 0)}
+            onClick={() => onAddCharge("New charge", 0)}
             className="no-print font-receipt text-sm text-ink-faded hover:text-ink"
           >
             + add charge

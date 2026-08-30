@@ -74,7 +74,7 @@ function PersonSplit({ breakdown, currency }: { breakdown: PersonBreakdown; curr
         ))}
         {chargeShares.map(
           (share) =>
-            share.shareCents > 0 && (
+            share.shareCents !== 0 && (
               <div key={share.chargeId} className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
                 <span className="min-w-0 max-w-[60%] truncate lowercase">{share.label}</span>
                 <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
