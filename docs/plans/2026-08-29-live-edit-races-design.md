@@ -84,8 +84,11 @@ reimplementing it badly because the schema forced transactions, which opt out of
 below — so their read-modify-write mutations cannot become field-path writes and keep their
 transactions: `fsUpdatePerson`, `fsUpdateCharge`, `fsDeleteCharge`, and `fsSetTip`.
 
-`fsDeletePerson` stays a transaction for a stronger reason: it removes the person *and* strips
-them from every assignment list, which is not expressible as independent field writes.
+`fsAddItem` and `fsDeletePerson` stay transactions for a stronger reason. Adding an item
+prepends — the blank row is meant to be typed into — and there is no `arrayPrepend`, so the
+order must be rewritten; doing that from the caller's view would let two simultaneous adds drop
+each other from the order. Deleting a person must also strip them from every assignment list,
+which is not expressible as independent field writes.
 
 **These five lose their instant feedback**, because the hand-rolled optimistic layer is being
 deleted and transactions get none from Firestore. That is acceptable here: all five are edited

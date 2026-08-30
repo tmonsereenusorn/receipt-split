@@ -10,7 +10,6 @@ import {
 import { normalizeReceiptMoney } from "@/lib/charges";
 import {
   subscribeToReceipt,
-  fsSetItems,
   fsAddItem,
   fsUpdateItem,
   fsDeleteItem,
@@ -33,7 +32,13 @@ import { PERSON_COLORS } from "@/lib/constants";
 export function useFirestoreReceipt(receiptId: string) {
   const [data, setData] = useState<ReceiptDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  // Two distinct failures, deliberately not sharing state. A subscription
+  // failure is fatal — there is no receipt to show. A failed write is not: the
+  // receipt is intact and Firestore's cache has already applied the change
+  // locally, so replacing the screen would hide working data behind an error
+  // the user cannot dismiss.
   const [error, setError] = useState<string | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -65,8 +70,12 @@ export function useFirestoreReceipt(receiptId: string) {
    * otherwise leave the UI silently disagreeing with the server.
    */
   const dispatch = useCallback((write: Promise<void>, whatFailed: string) => {
-    write.catch(() => setError(`Couldn't ${whatFailed}. Check your connection.`));
+    write.catch(() =>
+      setWriteError(`Couldn't ${whatFailed}. Check your connection.`)
+    );
   }, []);
+
+  const dismissWriteError = useCallback(() => setWriteError(null), []);
 
   // Memoised because these feed useCallback dependency arrays. Without a stable
   // identity the fallback allocates a new array every render, so every callback
@@ -80,13 +89,6 @@ export function useFirestoreReceipt(receiptId: string) {
   const restaurantName = data?.restaurantName ?? null;
   const currency = data?.currency ?? "USD";
 
-  const setItems = useCallback(
-    (newItems: ReceiptItem[]) => {
-      dispatch(fsSetItems(receiptId, newItems), "save the items");
-    },
-    [receiptId, dispatch]
-  );
-
   const addItem = useCallback(
     (name: string, quantity: number, priceCents: number) => {
       const item: ReceiptItem = {
@@ -96,12 +98,9 @@ export function useFirestoreReceipt(receiptId: string) {
         priceCents,
         assignedTo: [],
       };
-      dispatch(
-        fsAddItem(receiptId, item, items.map((i) => i.id)),
-        "add that item"
-      );
+      dispatch(fsAddItem(receiptId, item), "add that item");
     },
-    [receiptId, items, dispatch]
+    [receiptId, dispatch]
   );
 
   const updateItem = useCallback(
@@ -251,7 +250,8 @@ export function useFirestoreReceipt(receiptId: string) {
     currency,
     loading,
     error,
-    setItems,
+    writeError,
+    dismissWriteError,
     addItem,
     updateItem,
     deleteItem,

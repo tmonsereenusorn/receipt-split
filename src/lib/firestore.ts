@@ -28,7 +28,7 @@ const COLLECTION = "receipts";
 
 function requireData(snap: DocumentSnapshot): ReceiptDoc {
   if (!snap.exists()) throw new Error("Receipt not found");
-  return snap.data() as ReceiptDoc;
+  return normalizeStoredReceipt(snap.data());
 }
 
 function receiptRef(id: string) {
@@ -38,7 +38,11 @@ function receiptRef(id: string) {
 /** Fetch a receipt document once (for server-side use). */
 export async function getReceipt(id: string): Promise<ReceiptDoc | null> {
   const snap = await getDoc(receiptRef(id));
-  return snap.exists() ? (snap.data() as ReceiptDoc) : null;
+  // Normalized, not cast: stored `items` is a keyed map, so returning it behind
+  // a type that says ReceiptItem[] was a lie the compiler could not catch. Only
+  // generateMetadata reads this today, and only restaurantName, so nothing broke
+  // — the next caller to touch `items` would have.
+  return snap.exists() ? normalizeStoredReceipt(snap.data()) : null;
 }
 
 /** Create a new receipt document. Returns the document ID. */
@@ -96,37 +100,34 @@ export function subscribeToReceipt(
  */
 
 /**
- * Replaces the whole item list from client state, so unlike its neighbours this
- * IS a read-modify-write and keeps its transaction, per
- * docs/conventions/firestore.md. The existence guard matters: writing a keyed
- * map to a deleted receipt would recreate a partial document.
+ * A new item goes to the TOP, as it always has — the blank row is meant to be
+ * typed into immediately, and appending would put it below the fold on a long
+ * receipt.
+ *
+ * That makes this a genuine read-modify-write and so a transaction, per
+ * docs/conventions/firestore.md: `arrayUnion` can only append, so prepending
+ * means rewriting the order, and writing it from the caller's stale view would
+ * let two simultaneous adds drop each other from the order — the item would
+ * survive but land at the bottom, which is the placement this exists to avoid.
+ *
+ * The cost is that adding an item waits for the server, unlike assigning. That
+ * is the right way round: assignment is the rapid, repeated action.
  */
-export async function fsSetItems(id: string, items: ReceiptItem[]) {
+export async function fsAddItem(id: string, item: ReceiptItem) {
+  const { id: itemId, assignedTo, ...fields } = item;
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error("Receipt not found");
-    const { items: keyed, itemOrder, assignments } = storedFromItems(items);
-    tx.update(ref, { items: keyed, itemOrder, assignments });
-  });
-}
-
-/**
- * A new item goes to the TOP, as it always has — the blank row is meant to be
- * typed into immediately, and appending would put it below the fold on a long
- * receipt. `arrayUnion` can only append, so the order is written explicitly
- * from the caller's current view.
- */
-export async function fsAddItem(
-  id: string,
-  item: ReceiptItem,
-  currentOrder: string[]
-) {
-  const { id: itemId, assignedTo, ...fields } = item;
-  await updateDoc(receiptRef(id), {
-    [`items.${itemId}`]: fields,
-    itemOrder: [itemId, ...currentOrder.filter((i) => i !== itemId)],
-    ...(assignedTo.length > 0 && { [`assignments.${itemId}`]: assignedTo }),
+    const raw = snap.data() as { itemOrder?: unknown };
+    const order = Array.isArray(raw.itemOrder)
+      ? raw.itemOrder.filter((i): i is string => typeof i === "string")
+      : [];
+    tx.update(ref, {
+      [`items.${itemId}`]: fields,
+      itemOrder: [itemId, ...order.filter((i) => i !== itemId)],
+      ...(assignedTo.length > 0 && { [`assignments.${itemId}`]: assignedTo }),
+    });
   });
 }
 

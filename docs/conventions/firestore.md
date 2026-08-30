@@ -24,12 +24,23 @@ element, so a list that is edited field-by-field belongs in a map keyed by id wi
 its own field. An array of objects forces read-modify-write.
 
 ## Use transactions only for genuine read-modify-write
-`runTransaction` when a write truly depends on reading other state — `fsSetItems` replacing the
-whole list, `fsDeletePerson` also stripping that person from every assignment.
+`runTransaction` when a write truly depends on reading other state:
+
+- `fsAddItem` — a new item goes to the top, and there is no `arrayPrepend`, so the order has to
+  be rewritten. Writing it from the caller's view would let two simultaneous adds drop each
+  other from the order.
+- `fsDeletePerson` — removing a person also strips them from every assignment list.
 
 Transactions get **no latency compensation**: the SDK sends them straight to the server,
 bypassing the local mutation queue, so nothing appears until the server answers. That is the
 cost of reaching for one unnecessarily.
+
+## Known deviation: `people` and `charges`
+Both are still arrays of objects, so `fsUpdatePerson`, `fsUpdateCharge`, `fsDeleteCharge`, and
+`fsSetTip` are read-modify-write transactions and get no latency compensation. This is a known
+deviation from the rule above, not an oversight: they are edited rarely and never in rapid
+succession, and their inputs already hold local state while focused, so only the derived total
+lags. Key them if that changes.
 
 ## Don't hand-roll optimistic state
 Firestore's local cache already is the optimistic layer for `updateDoc`. A second one racing it

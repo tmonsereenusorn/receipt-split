@@ -41,9 +41,26 @@ export default function ReceiptPageClient({ id }: { id: string }) {
     );
   }
 
+  // Only a subscription failure replaces the screen; a failed write shows a
+  // dismissible banner below, because the receipt is still usable.
   if (receipt.error) {
     return (
       <ReceiptTape>
+      {receipt.writeError && (
+        <div className="no-print flex items-start gap-2 border-b border-ink-faded px-4 py-2">
+          <p className="flex-1 font-receipt text-base text-accent">
+            {receipt.writeError}
+          </p>
+          <button
+            type="button"
+            onClick={receipt.dismissWriteError}
+            aria-label="Dismiss"
+            className="font-receipt text-base text-ink-faded hover:text-ink"
+          >
+            ×
+          </button>
+        </div>
+      )}
         <div className="py-12 text-center font-receipt text-base text-accent">
           {receipt.error}
         </div>
