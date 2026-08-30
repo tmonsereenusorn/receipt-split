@@ -22,8 +22,11 @@ const EXTRACTION_PROMPT = `Extract line items, charges, tip, and currency from t
 }
 
 Rules:
-- priceCents is the unit price in integer cents (e.g., $12.99 -> 1299)
-- Default quantity to 1 unless explicitly shown
+- The amount printed on an item line is the LINE TOTAL for that line, not the price of one unit
+- priceCents must be the price of a SINGLE unit, in integer cents. When quantity is more than 1, divide the printed line total by the quantity: "3 FISH TACO ... $10.00" is quantity 3, priceCents 333, NOT priceCents 1000
+- Divide even when it does not come out even; round to the nearest cent
+- If the line separately prints a per-unit price, such as "2 @ 7.25 ... $14.50", use that per-unit price directly (725) and do not divide again
+- Quantity may be written in several ways and all mean the same thing: "2 x Beer", "2 Beer", "Beer x2", "Beer (2)". Default quantity to 1 only when no count is shown
 - items: only things ordered. Exclude every charge, subtotal, total, discount, payment method line, date, address, and phone number
 - charges: every non-item line that CHANGES the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, discounts, promotions, comps, and anything similar
 - label: copy the charge's wording from the receipt as printed, trimmed. Keep a printed percentage in the label (e.g. "Service Charge 18%"); do not convert it
