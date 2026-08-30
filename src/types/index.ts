@@ -14,8 +14,9 @@ export interface Person {
 }
 
 /**
- * A non-item line that adds to the receipt total: tax, service charge, delivery
- * fee, bag fee, surcharge.
+ * A non-item line that changes the receipt total: tax, service charge, delivery
+ * fee, bag fee, surcharge — or a discount, promo, or comp, stored as a negative
+ * amount.
  *
  * Deliberately generic. Fee wording varies by venue, region, and language, so
  * the category lives in the parsed label rather than in the type — adding a new

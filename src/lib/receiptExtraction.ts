@@ -1,3 +1,5 @@
+import { isValidChargeAmount } from "./charges";
+
 /**
  * Interpreting the model's reply to a receipt-extraction request.
  *
@@ -145,10 +147,10 @@ function parseAndValidate(text: string): ParseResult {
       typeof (charge as ExtractedCharge).label === "string" &&
       (charge as ExtractedCharge).label.trim().length > 0 &&
       typeof (charge as ExtractedCharge).amountCents === "number" &&
-      Number.isFinite((charge as ExtractedCharge).amountCents) &&
       // Bounded in both directions: negatives are legitimate (discounts), but
-      // an unbounded one could drive the grand total below zero.
-      Math.abs((charge as ExtractedCharge).amountCents) <= 100_000_000
+      // an unbounded one could drive the grand total below zero. Shares the
+      // storage layer's bound rather than repeating the number.
+      isValidChargeAmount((charge as ExtractedCharge).amountCents)
   );
 
   // Zero-amount charges are valid input but change nothing, so they are not

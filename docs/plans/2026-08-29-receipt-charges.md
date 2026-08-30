@@ -15,8 +15,9 @@
 - All money in integer cents. Display via `formatMoney(cents, currency)`; CSV uses `formatMoneyRaw`.
 - Reuse `distributeProportionally` (last-person-remainder). Do not write a second splitter.
 - Charges have **no percent mode**. Only `Tip` does.
+- A charge amount may be **negative** — a discount is a real receipt line — and is bounded in both directions by `isValidChargeAmount`.
 - Tip is computed on the **subtotal only** — never on subtotal-plus-charges.
-- An invalid charge must increment `dropped` and surface as `partial` — never be silently discarded.
+- A malformed charge is dropped and the scan still succeeds; only unusable **items** make a scan `partial`. (This reverses the original plan: `partial` is unrecoverable, so one bad charge line made a receipt permanently unscannable. See the design doc's Validation section.)
 - Zero-amount charges are not stored.
 - `docs/conventions/general.md`: validate at boundaries; name magic numbers; no test-only exports.
 - `docs/conventions/firestore.md`: `runTransaction` for read-modify-write; surface mutation errors.
@@ -30,7 +31,7 @@
 | `src/types/index.ts` | add `ReceiptCharge`, `Tip`, `initialTip`; `ReceiptDoc.charges`/`.tip`; `PersonBreakdown.chargeShares`; delete `TaxTip`, `initialTaxTip` |
 | `src/lib/calculator.ts` | add `getChargesTotalCents`, rewrite `calculateBreakdowns`, retype `getEffectiveTipCents`; delete tax/service getters |
 | `src/lib/charges.ts` | **new** — `normalizeReceiptMoney`, `chargesFromExtraction`, `makeChargeId` (replaces `src/lib/taxTip.ts`) |
-| `src/lib/receiptExtraction.ts` | parse/validate `charges[]`, count invalid toward `dropped` |
+| `src/lib/receiptExtraction.ts` | parse/validate `charges[]`; drop malformed ones without failing the scan |
 | `src/app/api/ocr/route.ts` | prompt schema + rules; response passthrough |
 | `src/lib/ocr.ts` | `OcrResult.charges` |
 | `src/lib/firestore.ts` | `fsAddCharge`/`fsUpdateCharge`/`fsDeleteCharge`/`fsSetTip`; `createReceipt` normalizes; delete `fsSetTaxTip` |
@@ -71,10 +72,10 @@
 
 Orientation — do not disturb: `ExtractionFailureCode` has five members; `extractJson()` handles fences and surrounding prose; `parseAndValidate` returns `ParseResult {receipt, dropped}`; a non-array `items` throws deliberately.
 
-- [ ] Write failing tests: charges parsed with labels verbatim; label trimmed; invalid charge (missing label, non-numeric amount, negative amount) increments `dropped` → `partial`; zero-amount charge omitted from the result; absent `charges` key → `[]`; non-array `charges` → `[]` without throwing.
+- [ ] Write failing tests: charges parsed with labels verbatim; label trimmed; a malformed charge (missing label, non-numeric amount, out-of-bound magnitude) is dropped while the scan succeeds; an unusable item still yields `partial`; a negative amount is kept; zero-amount charge omitted from the result; absent `charges` key → `[]`; non-array `charges` → `[]` without throwing.
 - [ ] Run, confirm failures.
-- [ ] Add `charges` to `ExtractedReceipt`; validate in `parseAndValidate`, folding invalid-charge count into the returned `dropped`.
-- [ ] Update `EXTRACTION_PROMPT`: replace `taxCents`/`serviceChargeCents` in the schema with `"charges": [ { "label": "string", "amountCents": number } ]`; keep `tipCents`. Rules per spec — any non-item line that adds to the total; label verbatim; a diner-chosen tip goes to `tipCents`; exclude subtotal/total/discounts/payment lines. Remove the enumerated fee vocabulary.
+- [ ] Add `charges` to `ExtractedReceipt`; validate in `parseAndValidate`, dropping malformed charges without adding them to `dropped` (only items feed `partial`).
+- [ ] Update `EXTRACTION_PROMPT`: replace `taxCents`/`serviceChargeCents` in the schema with `"charges": [ { "label": "string", "amountCents": number } ]`; keep `tipCents`. Rules per spec — any non-item line that *changes* the total; label verbatim; discounts and comps as negative amounts; a diner-chosen tip goes to `tipCents`; exclude subtotal/total/payment lines. Remove the enumerated fee vocabulary.
 - [ ] Pass `charges` through the route response and into `OcrResult`.
 - [ ] Full suite green, `tsc` may still fail on untouched UI. Commit: `feat: extract receipt charges as labelled cash lines`.
 
@@ -129,7 +130,8 @@ Orientation — do not disturb: `ExtractionFailureCode` has five members; `extra
 - [ ] Per-charge shares sum exactly to each charge
 - [ ] Tip computed on subtotal only, never compounding on charges
 - [ ] No tip-zeroing logic exists anywhere
-- [ ] Invalid charge → `dropped` → `partial`, never silently lost
+- [ ] Malformed charge dropped with the scan intact; unusable item still `partial`
+- [ ] Negative charges supported end to end: prompt, parser, bound, input, split, exports
 - [ ] Zero-amount charges not stored; no `$0.00` rows
 - [ ] Legacy docs convert exactly; percent tax freezes to cash; writes self-heal
 - [ ] No-charges output byte-identical to before, pinned by a test proven to fail on a one-character change

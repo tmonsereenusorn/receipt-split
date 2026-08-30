@@ -36,4 +36,37 @@ describe("parseCurrencyInput", () => {
   it("accepts zero", () => {
     expect(parseCurrencyInput("0", true).cents).toBe(0);
   });
+
+  it("rejects Infinity", () => {
+    // parseFloat("Infinity") is not NaN, so this reached formatMoney as $∞.
+    expect(parseCurrencyInput("Infinity", true).cents).toBeNull();
+    expect(parseCurrencyInput("-Infinity", true).cents).toBeNull();
+  });
+
+  it("rejects exponent notation", () => {
+    expect(parseCurrencyInput("1e10", true).cents).toBeNull();
+  });
+
+  it("rejects an amount beyond the magnitude bound", () => {
+    // Rejected here rather than at the mutation, which throws into a
+    // fire-and-forget call and would leave a wrong total on screen.
+    expect(parseCurrencyInput("99999999", true).cents).toBeNull();
+  });
+
+  it("rejects trailing garbage rather than committing the numeric prefix", () => {
+    expect(parseCurrencyInput("12abc", true).cents).toBeNull();
+  });
+
+  it("rejects a lone minus or decimal point", () => {
+    expect(parseCurrencyInput("-", true).cents).toBeNull();
+    expect(parseCurrencyInput(".", true).cents).toBeNull();
+  });
+
+  it("accepts a value at the magnitude bound", () => {
+    expect(parseCurrencyInput("1000000", true).cents).toBe(100_000_000);
+  });
+
+  it("tolerates surrounding whitespace", () => {
+    expect(parseCurrencyInput("  7 ", false).cents).toBe(700);
+  });
 });
