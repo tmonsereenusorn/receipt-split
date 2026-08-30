@@ -146,57 +146,6 @@ function parseAndValidate(text: string): ParseResult {
   // it wrong is silent and costs real money in whichever direction it errs.
   // Only the printed total distinguishes them, and comparing against it is
   // arithmetic — so the model transcribes both and this decides.
-  const printedTotal =
-    typeof parsed.itemsTotalCents === "number" &&
-    Number.isFinite(parsed.itemsTotalCents) &&
-    parsed.itemsTotalCents > 0
-      ? parsed.itemsTotalCents
-      : null;
-
-  const asLineTotals = rawItems.reduce((sum, i) => sum + i.lineTotalCents, 0);
-  const asUnitPrices = rawItems.reduce(
-    (sum, i) => sum + Math.max(1, Math.round(i.quantity)) * i.lineTotalCents,
-    0
-  );
-
-  // A reading has to actually MATCH the printed total, not merely land closer
-  // to it: a misread total would otherwise be enough to flip every price. The
-  // slack covers per-line rounding, since a receipt can print rounded figures.
-  const slack = Math.max(2, rawItems.length);
-  const unitReadingMatches =
-    printedTotal !== null && Math.abs(asUnitPrices - printedTotal) <= slack;
-  const lineReadingMatches =
-    printedTotal !== null && Math.abs(asLineTotals - printedTotal) <= slack;
-
-  // Only switch when the per-unit reading fits and the default does not. If
-  // neither fits, or both do — which happens when every line is a single unit,
-  // where the two readings are identical — keep the documented default.
-  const amountsArePerUnit = unitReadingMatches && !lineReadingMatches;
-
-  const items: ExtractedItem[] = rawItems
-    .map((item: RawItem) => {
-      // Floored at 1, not just rounded. A weighed line — "0.4 kg Bulk Coffee
-      // $6.00" — passed the quantity > 0 filter, rounded to 0, divided by zero,
-      // and produced Infinity. JSON.stringify turns that into null, the write
-      // succeeded, and the storage boundary then rejected the row on read: the
-      // item vanished from the bill with no error at any layer.
-      //
-      // Clamping keeps the line and keeps its money right: one unit at the
-      // printed line total is exactly what the receipt says that line cost.
-      const quantity = Math.max(1, Math.round(item.quantity));
-      return {
-        name: item.name,
-        quantity,
-        // Rounded, so a line total that does not divide evenly can be out by up
-        // to a cent per line — far better than the multiples it replaces.
-        // When the amounts are per unit, the printed figure already IS the
-        // unit price and dividing would halve it.
-        priceCents: amountsArePerUnit
-          ? Math.round(item.lineTotalCents)
-          : Math.round(item.lineTotalCents / quantity),
-      };
-    });
-
   const tipCents =
     typeof parsed.tipCents === "number" && parsed.tipCents >= 0
       ? Math.round(parsed.tipCents)
@@ -230,6 +179,26 @@ function parseAndValidate(text: string): ParseResult {
       amountCents: Math.round(charge.amountCents),
     }))
     .filter((charge) => charge.amountCents !== 0);
+
+  const items: ExtractedItem[] = rawItems
+    .map((item: RawItem) => {
+      // Floored at 1, not just rounded. A weighed line — "0.4 kg Bulk Coffee
+      // $6.00" — passed the quantity > 0 filter, rounded to 0, divided by zero,
+      // and produced Infinity. JSON.stringify turns that into null, the write
+      // succeeded, and the storage boundary then rejected the row on read: the
+      // item vanished from the bill with no error at any layer.
+      //
+      // Clamping keeps the line and keeps its money right: one unit at the
+      // printed line total is exactly what the receipt says that line cost.
+      const quantity = Math.max(1, Math.round(item.quantity));
+      return {
+        name: item.name,
+        quantity,
+        // Rounded, so a line total that does not divide evenly can be out by up
+        // to a cent per line — far better than the multiples it replaces.
+        priceCents: Math.round(item.lineTotalCents / quantity),
+      };
+    });
 
   return {
     receipt: { restaurantName, items, charges, tipCents, currency },

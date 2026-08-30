@@ -17,15 +17,14 @@ const EXTRACTION_PROMPT = `Extract line items, charges, tip, and currency from t
   "charges": [
     { "label": "string", "amountCents": number }
   ],
-  "itemsTotalCents": number or null,
   "tipCents": number or null,
   "currency": "ISO 4217 code, e.g. USD, EUR, JPY"
 }
 
 Rules:
-- lineTotalCents is the amount printed at the end of that item line, copied as-is in integer cents. Do NOT divide it, do not compute a per-unit price, do not do any arithmetic: "3 FISH TACO ... $10.00" is quantity 3, lineTotalCents 1000
+- lineTotalCents is the EXTENDED amount for that line — the cost of all units of it. On most receipts that is the number printed at the end of the line. If the line shows only a per-unit price, such as "2  BEER  6.00" where 6.00 is the price of one, multiply it out: lineTotalCents is 1200
+- Otherwise, lineTotalCents is the amount printed at the end of that item line, copied as-is in integer cents. Do NOT divide it, do not compute a per-unit price, do not do any arithmetic: "3 FISH TACO ... $10.00" is quantity 3, lineTotalCents 1000
 - If a line shows a per-unit price and a line total, such as "2 @ 7.25 ... $14.50", lineTotalCents is the line total (1450)
-- itemsTotalCents: the SUBTOTAL printed on the receipt — the total of the items before tax, service, and other charges. If no subtotal is printed but a grand total is, copy that instead. Copy it as printed; do not compute it. Use null if the receipt shows no total at all
 - quantity is the count of that item on the line. It may be written several ways, all meaning the same: "2 x Beer", "2 Beer", "Beer x2", "Beer (2)". Use 1 when no count is shown
 - items: only things ordered. Exclude every charge, subtotal, total, discount, payment method line, date, address, and phone number
 - charges: every non-item line that CHANGES the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, discounts, promotions, comps, and anything similar
