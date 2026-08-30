@@ -1,9 +1,13 @@
 import { isValidChargeAmount, normalizeReceiptMoney } from "./charges";
+import { normalizeStoredReceipt, storedFromItems } from "./receiptDoc";
 import {
   doc,
   addDoc,
   getDoc,
   updateDoc,
+  deleteField,
+  arrayUnion,
+  arrayRemove,
   collection,
   runTransaction,
   onSnapshot,
@@ -41,10 +45,13 @@ export async function getReceipt(id: string): Promise<ReceiptDoc | null> {
 export async function createReceipt(
   partial: Partial<ReceiptDoc>
 ): Promise<string> {
-  const data: ReceiptDoc = {
+  const { items, itemOrder, assignments } = storedFromItems(partial.items ?? []);
+  const data = {
     restaurantName: partial.restaurantName ?? null,
     currency: partial.currency ?? "USD",
-    items: partial.items ?? [],
+    items,
+    itemOrder,
+    assignments,
     people: partial.people ?? [],
     charges: partial.charges ?? [],
     tip: partial.tip ?? initialTip,
@@ -69,189 +76,137 @@ export function subscribeToReceipt(
         onError(new Error("Receipt not found"));
         return;
       }
-      onData(snap.data() as ReceiptDoc);
+      onData(normalizeStoredReceipt(snap.data()));
     },
     onError
   );
 }
 
 /** Set items array (last-write-wins — existence-guarded but not merge-safe) */
+/**
+ * Every mutation below is a field-path `updateDoc`, not a transaction.
+ *
+ * `updateDoc` is applied to the local cache the instant it is issued and the
+ * listener fires immediately, so the UI reflects the edit with no round-trip and
+ * no hand-rolled optimistic state. A transaction gets none of that: the SDK
+ * sends it straight to the server, bypassing the local mutation queue.
+ *
+ * `arrayUnion`/`arrayRemove` are applied by the server and are idempotent and
+ * commutative, so two people editing the same item converge without either
+ * write being retried.
+ */
+
 export async function fsSetItems(id: string, items: ReceiptItem[]) {
-  const ref = receiptRef(id);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    requireData(snap);
-    tx.update(ref, { items });
-  });
+  const { items: keyed, itemOrder, assignments } = storedFromItems(items);
+  await updateDoc(receiptRef(id), { items: keyed, itemOrder, assignments });
 }
 
-/** Atomic: add item */
 export async function fsAddItem(id: string, item: ReceiptItem) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, { items: [item, ...data.items] });
+  const { id: itemId, assignedTo, ...fields } = item;
+  await updateDoc(receiptRef(id), {
+    [`items.${itemId}`]: fields,
+    itemOrder: arrayUnion(itemId),
+    ...(assignedTo.length > 0 && { [`assignments.${itemId}`]: assignedTo }),
   });
 }
 
-/** Atomic: update item fields */
 export async function fsUpdateItem(
   id: string,
   itemId: string,
   updates: Partial<Omit<ReceiptItem, "id">>
 ) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, {
-      items: data.items.map((item) =>
-        item.id === itemId ? { ...item, ...updates } : item
-      ),
-    });
-  });
+  const { assignedTo, ...fields } = updates;
+  const patch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    patch[`items.${itemId}.${key}`] = value;
+  }
+  if (assignedTo) patch[`assignments.${itemId}`] = assignedTo;
+  if (Object.keys(patch).length === 0) return;
+  await updateDoc(receiptRef(id), patch);
 }
 
-/** Atomic: delete item */
 export async function fsDeleteItem(id: string, itemId: string) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, {
-      items: data.items.filter((item) => item.id !== itemId),
-    });
+  await updateDoc(receiptRef(id), {
+    [`items.${itemId}`]: deleteField(),
+    [`assignments.${itemId}`]: deleteField(),
+    itemOrder: arrayRemove(itemId),
   });
 }
 
-/** Atomic: move item up or down */
-export async function fsMoveItem(
+/** Order is its own field, so reordering is a single write of that field. */
+export async function fsSetItemOrder(id: string, itemOrder: string[]) {
+  await updateDoc(receiptRef(id), { itemOrder });
+}
+
+/**
+ * Set whether a person is assigned, rather than flipping it.
+ *
+ * Intent, not a delta: a duplicate click is a no-op instead of a reversal. The
+ * old toggle computed the flip from server state, so once the UI had reverted
+ * for any reason a re-click removed the person instead of re-adding them.
+ */
+export async function fsSetAssignment(
   id: string,
   itemId: string,
-  direction: "up" | "down"
-) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    const items = [...data.items];
-    const idx = items.findIndex((i) => i.id === itemId);
-    if (idx === -1) return;
-    const swap = direction === "up" ? idx - 1 : idx + 1;
-    if (swap < 0 || swap >= items.length) return;
-    [items[idx], items[swap]] = [items[swap], items[idx]];
-    tx.update(ref, { items });
-  });
-}
-
-/** Atomic: reorder item to a new index */
-export async function fsReorderItem(
-  id: string,
-  itemId: string,
-  newIndex: number
-) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    const items = [...data.items];
-    const oldIndex = items.findIndex((i) => i.id === itemId);
-    if (oldIndex === -1) return;
-    const [item] = items.splice(oldIndex, 1);
-    items.splice(newIndex, 0, item);
-    tx.update(ref, { items });
-  });
-}
-
-/** Atomic: add person */
-export async function fsAddPerson(id: string, person: Person) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, { people: [...data.people, person] });
-  });
-}
-
-/** Atomic: update person name */
-export async function fsUpdatePerson(
-  id: string,
   personId: string,
-  name: string
+  assigned: boolean
 ) {
+  await updateDoc(receiptRef(id), {
+    [`assignments.${itemId}`]: assigned
+      ? arrayUnion(personId)
+      : arrayRemove(personId),
+  });
+}
+
+export async function fsAddPerson(id: string, person: Person) {
+  await updateDoc(receiptRef(id), { people: arrayUnion(person) });
+}
+
+export async function fsUpdatePerson(id: string, personId: string, name: string) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
     tx.update(ref, {
-      people: data.people.map((p) =>
+      people: (data.people ?? []).map((p) =>
         p.id === personId ? { ...p, name } : p
       ),
     });
   });
 }
 
-/** Atomic: delete person and clean up assignments */
+/**
+ * The one mutation that still needs a transaction: removing a person also has
+ * to strip them from every assignment list, which cannot be expressed as a set
+ * of independent field writes.
+ */
 export async function fsDeletePerson(id: string, personId: string) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, {
-      people: data.people.filter((p) => p.id !== personId),
-      items: data.items.map((item) => ({
-        ...item,
-        assignedTo: item.assignedTo.filter((pid) => pid !== personId),
-      })),
-    });
-  });
-}
+    const raw = snap.data() as Record<string, unknown> | undefined;
+    if (!raw) throw new Error("Receipt not found");
 
-/** Atomic: toggle person assignment on an item */
-export async function fsToggleAssignment(
-  id: string,
-  itemId: string,
-  personId: string
-) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    tx.update(ref, {
-      items: data.items.map((item) => {
-        if (item.id !== itemId) return item;
-        const has = item.assignedTo.includes(personId);
-        return {
-          ...item,
-          assignedTo: has
-            ? item.assignedTo.filter((pid) => pid !== personId)
-            : [...item.assignedTo, personId],
-        };
-      }),
-    });
-  });
-}
-
-/**
- * Charge mutations persist `tip` alongside `charges`, always.
- *
- * Writing charges alone on a pre-charges document leaves it with taxTip +
- * charges + no tip key, so the next read takes the new-shape branch and
- * resolves the tip to the default — permanently replacing whatever the diner
- * had set. Every write converts the whole money shape or none of it.
- */
-export async function fsAddCharge(id: string, charge: ReceiptCharge) {
-  await runTransaction(db, async (tx) => {
-    const ref = receiptRef(id);
-    const snap = await tx.get(ref);
-    const data = requireData(snap);
-    if (!isValidChargeAmount(charge.amountCents)) {
-      throw new Error("Charge amount out of range");
+    const doc = normalizeStoredReceipt(raw);
+    const patch: Record<string, unknown> = {
+      people: doc.people.filter((p) => p.id !== personId),
+    };
+    for (const item of doc.items) {
+      if (item.assignedTo.includes(personId)) {
+        patch[`assignments.${item.id}`] = item.assignedTo.filter(
+          (pid) => pid !== personId
+        );
+      }
     }
-    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
-    tx.update(ref, { charges: [...charges, charge], tip });
+    tx.update(ref, patch);
   });
+}
+
+export async function fsAddCharge(id: string, charge: ReceiptCharge) {
+  if (!isValidChargeAmount(charge.amountCents)) {
+    throw new Error("Charge amount out of range");
+  }
+  await updateDoc(receiptRef(id), { charges: arrayUnion(charge) });
 }
 
 export async function fsUpdateCharge(
@@ -259,20 +214,18 @@ export async function fsUpdateCharge(
   chargeId: string,
   updates: Partial<Omit<ReceiptCharge, "id">>
 ) {
+  if (
+    updates.amountCents !== undefined &&
+    !isValidChargeAmount(updates.amountCents)
+  ) {
+    throw new Error("Charge amount out of range");
+  }
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = requireData(snap);
-    // Validated on write as well as read: an out-of-range amount written here
-    // would be silently dropped by every later read, so the row would vanish
-    // with no message while the bad value stayed in the document.
-    if (
-      updates.amountCents !== undefined &&
-      !isValidChargeAmount(updates.amountCents)
-    ) {
-      throw new Error("Charge amount out of range");
-    }
-    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    const raw = snap.data();
+    if (!raw) throw new Error("Receipt not found");
+    const { charges, tip } = normalizeReceiptMoney(raw, []);
     tx.update(ref, {
       charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),
       tip,
@@ -284,8 +237,9 @@ export async function fsDeleteCharge(id: string, chargeId: string) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = requireData(snap);
-    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    const raw = snap.data();
+    if (!raw) throw new Error("Receipt not found");
+    const { charges, tip } = normalizeReceiptMoney(raw, []);
     tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId), tip });
   });
 }
@@ -294,8 +248,9 @@ export async function fsSetTip(id: string, updates: Partial<Tip>) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
-    const data = requireData(snap);
-    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    const raw = snap.data();
+    if (!raw) throw new Error("Receipt not found");
+    const { charges, tip } = normalizeReceiptMoney(raw, []);
     tx.update(ref, { charges, tip: { ...tip, ...updates } });
   });
 }

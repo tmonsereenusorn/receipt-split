@@ -80,12 +80,19 @@ reimplementing it badly because the schema forced transactions, which opt out of
 
 ## What stays a transaction
 
-Only writes that genuinely depend on reading other state:
+`people` and `charges` remain arrays of objects — moving them to keyed maps is out of scope
+below — so their read-modify-write mutations cannot become field-path writes and keep their
+transactions: `fsUpdatePerson`, `fsUpdateCharge`, `fsDeleteCharge`, and `fsSetTip`.
 
-- `fsDeletePerson` — removes the person *and* strips them from every assignment list
-- `createReceipt` — a single document create, unchanged
+`fsDeletePerson` stays a transaction for a stronger reason: it removes the person *and* strips
+them from every assignment list, which is not expressible as independent field writes.
 
-Everything else becomes a field-path `updateDoc`.
+**These five lose their instant feedback**, because the hand-rolled optimistic layer is being
+deleted and transactions get none from Firestore. That is acceptable here: all five are edited
+rarely and never in the rapid succession that makes assignment race, and the inputs that drive
+them already hold their own local state while focused, so only the derived total lags. Everything
+on the hot path — assigning, adding, renaming, deleting, reordering items — becomes a field-path
+`updateDoc` and is instant.
 
 ## Backward compatibility
 

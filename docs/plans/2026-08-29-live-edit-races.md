@@ -100,7 +100,7 @@ Each mutation loses its transaction and becomes a field-path `updateDoc`.
 
 - [ ] Re-run the interleaving simulation from the diagnosis against the new write semantics: assign, stale snapshot, re-click → the person stays assigned.
 - [ ] Build, start on a free port, confirm the scan path and receipt page still work end to end.
-- [ ] Confirm by reading that no `runTransaction` remains except `fsDeletePerson`, and no `setData(prev` remains in the hook.
+- [ ] Confirm by reading that no `setData(prev` remains in the hook, and that the only remaining transactions are the five whose fields are not addressable (see below).
 - [ ] Stop the server (`pkill -f "next-server"`).
 - [ ] Final: `npm test`, `npx tsc --noEmit`, `npm run build`, eslint 8, `git status --short` empty.
 - [ ] Push and open a PR. Do not merge.
@@ -109,7 +109,7 @@ Each mutation loses its transaction and becomes a field-path `updateDoc`.
 
 - [ ] Assigning is idempotent — a duplicate click cannot unassign
 - [ ] No optimistic `setData` anywhere in the hook
-- [ ] Only `fsDeletePerson` uses a transaction
+- [ ] Transactions remain only where the edited field is not addressable
 - [ ] Legacy array documents read correctly; a touched document self-heals
 - [ ] `calculator.ts`, `format.ts`, and the receipt components are unchanged
 - [ ] Write failures reach the user
