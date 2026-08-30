@@ -42,7 +42,7 @@ export function SplitSection({ breakdowns, allAssigned, currency }: SplitSection
 }
 
 function PersonSplit({ breakdown, currency }: { breakdown: PersonBreakdown; currency: string }) {
-  const { person, items, subtotalCents, taxShareCents, tipShareCents, totalCents } = breakdown;
+  const { person, items, subtotalCents, chargeShares, tipShareCents, totalCents } = breakdown;
 
   if (totalCents === 0) return null;
 
@@ -72,12 +72,15 @@ function PersonSplit({ breakdown, currency }: { breakdown: PersonBreakdown; curr
             <span className="shrink-0 ml-2">{formatMoney(shareCents, currency)}</span>
           </div>
         ))}
-        {taxShareCents > 0 && (
-          <div className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
-            <span className="shrink-0">tax</span>
-            <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
-            <span className="shrink-0">{formatMoney(taxShareCents, currency)}</span>
-          </div>
+        {chargeShares.map(
+          (share) =>
+            share.shareCents > 0 && (
+              <div key={share.chargeId} className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
+                <span className="min-w-0 max-w-[60%] truncate lowercase">{share.label}</span>
+                <span className="mx-1 flex-1 overflow-hidden whitespace-nowrap text-ink-faded" aria-hidden="true">{"·".repeat(50)}</span>
+                <span className="shrink-0">{formatMoney(share.shareCents, currency)}</span>
+              </div>
+            )
         )}
         {tipShareCents > 0 && (
           <div className="print-muted flex items-baseline font-receipt text-base text-ink-muted">
