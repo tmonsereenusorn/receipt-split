@@ -25,10 +25,10 @@ Rules:
 - priceCents is the unit price in integer cents (e.g., $12.99 -> 1299)
 - Default quantity to 1 unless explicitly shown
 - items: only things ordered. Exclude every charge, subtotal, total, discount, payment method line, date, address, and phone number
-- charges: every non-item line that ADDS to the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, and anything similar
+- charges: every non-item line that CHANGES the total - tax, service charge, service fee, delivery fee, bag fee, surcharges, auto-gratuity, discounts, promotions, comps, and anything similar
 - label: copy the charge's wording from the receipt as printed, trimmed. Keep a printed percentage in the label (e.g. "Service Charge 18%"); do not convert it
-- amountCents: the charge's cash amount in integer cents
-- Do not put subtotal, total, or discounts in charges
+- amountCents: the charge's cash amount in integer cents. Use a NEGATIVE number for anything that reduces the total, such as a discount, promotion, or comp (e.g. a $4.31 promo -> -431)
+- Do not put subtotal or total in charges
 - tipCents: a tip or gratuity the diner chose or wrote in, in integer cents, or null if not found. A tip goes here, never in charges
 - currency: the ISO 4217 currency code detected from the receipt (look for symbols like $, EUR, ¥, £, or text). Default to "USD" if unclear
 - If no items found, return an empty items array; if no charges found, return an empty charges array`;

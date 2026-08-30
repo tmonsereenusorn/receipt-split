@@ -47,7 +47,17 @@ function ChargeRow({
   // call site) rather than a state-resetting effect, which the lint config
   // rejects.
   const [expanded, setExpanded] = useState(false);
+
+  // Optimistic input state per docs/conventions/react-patterns.md: keep the
+  // local value while focused, sync from props when not. Without this a
+  // concurrent rename by another diner is reverted on blur, and this is a
+  // real-time app with no auth, so concurrent editing is the normal case.
   const [localLabel, setLocalLabel] = useState(charge.label);
+  const isLabelFocused = useRef(false);
+
+  useEffect(() => {
+    if (!isLabelFocused.current) setLocalLabel(charge.label);
+  }, [charge.label]);
 
   const editable = Boolean(onUpdate);
 
@@ -82,7 +92,11 @@ function ChargeRow({
             aria-label="Charge name"
             placeholder="Charge name"
             onChange={(e) => setLocalLabel(e.target.value)}
+            onFocus={() => {
+              isLabelFocused.current = true;
+            }}
             onBlur={() => {
+              isLabelFocused.current = false;
               const trimmed = localLabel.trim();
               if (trimmed && trimmed !== charge.label) onUpdate?.({ label: trimmed });
               else setLocalLabel(charge.label);

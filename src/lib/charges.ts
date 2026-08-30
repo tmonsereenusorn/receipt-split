@@ -43,6 +43,15 @@ export function makeChargeId(label: string, index?: number): string {
   return index === undefined ? `charge-${slug}` : `charge-${index}-${slug}`;
 }
 
+/**
+ * A charge cannot exceed this magnitude in either direction.
+ *
+ * Now that negatives are legitimate (discounts), an unbounded amount could
+ * drive the grand total below zero. $1,000,000 is far beyond any real receipt
+ * line while still rejecting corrupt or adversarial values.
+ */
+const MAX_CHARGE_MAGNITUDE_CENTS = 100_000_000;
+
 function isStoredCharge(value: unknown): value is ReceiptCharge {
   return (
     typeof value === "object" &&
@@ -51,7 +60,8 @@ function isStoredCharge(value: unknown): value is ReceiptCharge {
     typeof (value as ReceiptCharge).label === "string" &&
     (value as ReceiptCharge).label.trim().length > 0 &&
     typeof (value as ReceiptCharge).amountCents === "number" &&
-    Number.isFinite((value as ReceiptCharge).amountCents)
+    Number.isFinite((value as ReceiptCharge).amountCents) &&
+    Math.abs((value as ReceiptCharge).amountCents) <= MAX_CHARGE_MAGNITUDE_CENTS
   );
 }
 

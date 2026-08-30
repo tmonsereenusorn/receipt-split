@@ -233,14 +233,21 @@ export async function fsToggleAssignment(
   });
 }
 
-/** Atomic: update tax/tip */
+/**
+ * Charge mutations persist `tip` alongside `charges`, always.
+ *
+ * Writing charges alone on a pre-charges document leaves it with taxTip +
+ * charges + no tip key, so the next read takes the new-shape branch and
+ * resolves the tip to the default — permanently replacing whatever the diner
+ * had set. Every write converts the whole money shape or none of it.
+ */
 export async function fsAddCharge(id: string, charge: ReceiptCharge) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
-    tx.update(ref, { charges: [...charges, charge] });
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: [...charges, charge], tip });
   });
 }
 
@@ -253,9 +260,10 @@ export async function fsUpdateCharge(
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
     tx.update(ref, {
       charges: charges.map((c) => (c.id === chargeId ? { ...c, ...updates } : c)),
+      tip,
     });
   });
 }
@@ -265,15 +273,11 @@ export async function fsDeleteCharge(id: string, chargeId: string) {
     const ref = receiptRef(id);
     const snap = await tx.get(ref);
     const data = requireData(snap);
-    const { charges } = normalizeReceiptMoney(data, data.items ?? []);
-    tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId) });
+    const { charges, tip } = normalizeReceiptMoney(data, data.items ?? []);
+    tx.update(ref, { charges: charges.filter((c) => c.id !== chargeId), tip });
   });
 }
 
-/**
- * Writes go through normalizeReceiptMoney so a legacy document self-heals into
- * the new shape the first time it is touched.
- */
 export async function fsSetTip(id: string, updates: Partial<Tip>) {
   await runTransaction(db, async (tx) => {
     const ref = receiptRef(id);

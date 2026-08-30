@@ -145,7 +145,10 @@ function parseAndValidate(text: string): ParseResult {
       typeof (charge as ExtractedCharge).label === "string" &&
       (charge as ExtractedCharge).label.trim().length > 0 &&
       typeof (charge as ExtractedCharge).amountCents === "number" &&
-      Number.isFinite((charge as ExtractedCharge).amountCents)
+      Number.isFinite((charge as ExtractedCharge).amountCents) &&
+      // Bounded in both directions: negatives are legitimate (discounts), but
+      // an unbounded one could drive the grand total below zero.
+      Math.abs((charge as ExtractedCharge).amountCents) <= 100_000_000
   );
 
   // Zero-amount charges are valid input but change nothing, so they are not

@@ -233,37 +233,79 @@ describe("chargesFromExtraction", () => {
   });
 });
 
-describe("optimistic writes on a legacy document", () => {
-  // The hook builds optimistic state from normalizeReceiptMoney rather than
-  // from doc.charges. Writing a bare array sent the next read down the
-  // new-shape branch and discarded the migrated charges entirely.
-  const legacy = { taxTip: { ...LEGACY_BASE, taxCents: 700 } };
+describe("writes against a legacy document", () => {
+  // These mirror what is actually PERSISTED, not what the client holds in
+  // memory. An earlier version of these tests built the client shape (charges
+  // AND tip) and so stayed green while the server payload — charges alone —
+  // was destroying the stored tip.
+  const legacyWithTip = {
+    taxTip: { ...LEGACY_BASE, taxCents: 700, tipCents: 1500 },
+  };
 
-  it("keeps migrated charges when a new charge is appended", () => {
-    const { charges, tip } = normalizeReceiptMoney(legacy, items(10000));
-    const optimistic = {
-      ...legacy,
+  it("preserves a non-default tip when a charge is added", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacyWithTip, items(10000));
+    // exactly the fsAddCharge payload
+    const persisted = {
+      ...legacyWithTip,
       charges: [...charges, { id: "new", label: "Corkage", amountCents: 1000 }],
       tip,
     };
 
-    const after = normalizeReceiptMoney(optimistic, items(10000));
+    const after = normalizeReceiptMoney(persisted, items(10000));
+
+    expect(after.tip.cents).toBe(1500);
+    expect(after.tip.isPercent).toBe(false);
+  });
+
+  it("preserves a non-default tip when a charge is deleted", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacyWithTip, items(10000));
+    const persisted = {
+      ...legacyWithTip,
+      charges: charges.filter((c) => c.label !== "Tax"),
+      tip,
+    };
+
+    const after = normalizeReceiptMoney(persisted, items(10000));
+
+    expect(after.tip.cents).toBe(1500);
+  });
+
+  it("keeps migrated charges when a new charge is appended", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacyWithTip, items(10000));
+    const persisted = {
+      ...legacyWithTip,
+      charges: [...charges, { id: "new", label: "Corkage", amountCents: 1000 }],
+      tip,
+    };
+
+    const after = normalizeReceiptMoney(persisted, items(10000));
 
     expect(after.charges.map((c) => c.label)).toEqual(["Tax", "Corkage"]);
     expect(after.charges.reduce((s, c) => s + c.amountCents, 0)).toBe(1700);
   });
 
-  it("applies an optimistic tip change instead of discarding it", () => {
-    const { charges, tip } = normalizeReceiptMoney(legacy, items(10000));
-    const optimistic = {
-      ...legacy,
+  it("applies a tip change instead of discarding it", () => {
+    const { charges, tip } = normalizeReceiptMoney(legacyWithTip, items(10000));
+    const persisted = {
+      ...legacyWithTip,
       charges,
       tip: { ...tip, isPercent: false, cents: 5000 },
     };
 
-    const after = normalizeReceiptMoney(optimistic, items(10000));
+    const after = normalizeReceiptMoney(persisted, items(10000));
 
     expect(after.tip.cents).toBe(5000);
     expect(after.tip.isPercent).toBe(false);
+  });
+
+  it("would lose the tip if a write persisted charges without tip", () => {
+    // Guards the actual defect: every charge mutation must include tip in its
+    // update payload. If one regresses to charges-only, this documents why.
+    const { charges } = normalizeReceiptMoney(legacyWithTip, items(10000));
+    const badPayload = { ...legacyWithTip, charges };
+
+    const after = normalizeReceiptMoney(badPayload, items(10000));
+
+    expect(after.tip.cents).toBe(0); // the tip is gone — do not ship a write like this
   });
 });

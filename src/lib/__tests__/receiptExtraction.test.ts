@@ -278,6 +278,17 @@ describe("interpretExtraction charges", () => {
     expect(result.data.charges).toEqual([{ label: "Promo", amountCents: -500 }]);
   });
 
+  it("rejects an absurd charge magnitude in either direction", () => {
+    const result = interpretExtraction(
+      "end_turn",
+      '{"items":[],"charges":[{"label":"Huge","amountCents":999999999999},{"label":"Tax","amountCents":40}],"currency":"USD"}'
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.charges).toEqual([{ label: "Tax", amountCents: 40 }]);
+  });
+
   it("still fails as partial when an ITEM is unusable", () => {
     const result = interpretExtraction(
       "end_turn",
