@@ -54,23 +54,8 @@ describe("buildInitialPeople", () => {
 });
 
 describe("resolveInitialTip", () => {
-  it("uses the percentage when checked and the bill has no tip", () => {
-    const tip = resolveInitialTip({ enabled: true, percent: 20 }, null);
-
-    expect(tip).toEqual({ cents: 0, isPercent: true, percent: 20 });
-  });
-
-  it("overrides a printed tip when the box is checked", () => {
-    // Checking the box is an active choice and beats the bill.
-    const tip = resolveInitialTip({ enabled: true, percent: 20 }, 1200);
-
-    expect(tip).toEqual({ cents: 0, isPercent: true, percent: 20 });
-  });
-
-  it("keeps a printed tip when the box is left unchecked", () => {
-    // Unchecked is the default state, not a decision — it must not discard a
-    // tip actually printed on the receipt.
-    const tip = resolveInitialTip({ enabled: false, percent: 20 }, 1200);
+  it("uses the bill's tip when the answer is that it was on the bill", () => {
+    const tip = resolveInitialTip({ onBill: true, percent: 20 }, 1200);
 
     expect(tip).toEqual({
       cents: 1200,
@@ -79,18 +64,31 @@ describe("resolveInitialTip", () => {
     });
   });
 
-  it("yields no tip when unchecked and the bill has none", () => {
-    // Replaces the silent 20% every receipt used to carry.
-    const tip = resolveInitialTip({ enabled: false, percent: 20 }, null);
+  it("yields no tip when it was on the bill but the scan found none", () => {
+    // The user said it was printed and the scan missed it. Inventing an amount
+    // would be worse than none; the TIP row is editable on the receipt page.
+    const tip = resolveInitialTip({ onBill: true, percent: 20 }, null);
 
-    expect(tip.isPercent).toBe(false);
     expect(tip.cents).toBe(0);
+    expect(tip.isPercent).toBe(false);
+  });
+
+  it("uses the entered percentage when the tip was not on the bill", () => {
+    const tip = resolveInitialTip({ onBill: false, percent: 20 }, null);
+
+    expect(tip).toEqual({ cents: 0, isPercent: true, percent: 20 });
+  });
+
+  it("prefers the entered percentage over a tip found on the bill", () => {
+    // Both answers are now deliberate — the question is required — so the
+    // user's stated percentage wins over what the scan read.
+    const tip = resolveInitialTip({ onBill: false, percent: 25 }, 1200);
+
+    expect(tip).toEqual({ cents: 0, isPercent: true, percent: 25 });
   });
 
   it("treats a printed zero tip as printed, not absent", () => {
-    // A receipt with a struck-through or written-in $0.00 tip line said
-    // something; it is not the same as having no tip line at all.
-    const tip = resolveInitialTip({ enabled: false, percent: 20 }, 0);
+    const tip = resolveInitialTip({ onBill: true, percent: 20 }, 0);
 
     expect(tip).toEqual({
       cents: 0,
@@ -100,24 +98,23 @@ describe("resolveInitialTip", () => {
   });
 
   it("offers the default percentage for a later toggle when there is no tip", () => {
-    const tip = resolveInitialTip({ enabled: false, percent: 20 }, null);
+    const tip = resolveInitialTip({ onBill: true, percent: 20 }, null);
 
     expect(tip.percent).toBe(initialTip.percent);
   });
 });
-
 describe("tip percentages that scale everyone's total", () => {
   it("applies a fractional percentage exactly", () => {
     // The setup field commits a parsed float on blur; a decimal must survive
     // into the tip. Typing 12.5 previously landed on 5.
-    const tip = resolveInitialTip({ enabled: true, percent: 12.5 }, null);
+    const tip = resolveInitialTip({ onBill: false, percent: 12.5 }, null);
 
     expect(tip.percent).toBe(12.5);
     expect(tip.isPercent).toBe(true);
   });
 
   it("carries a zero percentage through as an explicit zero tip", () => {
-    const tip = resolveInitialTip({ enabled: true, percent: 0 }, null);
+    const tip = resolveInitialTip({ onBill: false, percent: 0 }, null);
 
     expect(tip.isPercent).toBe(true);
     expect(tip.percent).toBe(0);

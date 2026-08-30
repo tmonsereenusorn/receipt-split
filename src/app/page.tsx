@@ -38,7 +38,8 @@ export default function LandingPage() {
   const [names, setNames] = useState<NameRow[]>([
     { id: makeRowId(0), name: "" },
   ]);
-  const [tipEnabled, setTipEnabled] = useState(false);
+  // null until answered — the question is required, so there is no default.
+  const [tipOnBill, setTipOnBill] = useState<boolean | null>(null);
   const [tipPercent, setTipPercent] = useState(initialTip.percent);
 
   function handleScanStarted(promise: Promise<ScanOutcome>) {
@@ -97,8 +98,9 @@ export default function LandingPage() {
       const scan: ScanResult | null = outcome?.ok ? outcome.result : null;
 
       const people = buildInitialPeople(names.map((row) => row.name));
+      // Continue is disabled until answered, so this is never null here.
       const tip = resolveInitialTip(
-        { enabled: tipEnabled, percent: tipPercent },
+        { onBill: tipOnBill === true, percent: tipPercent },
         scan?.parsedTipCents ?? null
       );
 
@@ -160,8 +162,8 @@ export default function LandingPage() {
           <SetupSection
             names={names}
             onChangeNames={setNames}
-            tipEnabled={tipEnabled}
-            onToggleTip={setTipEnabled}
+            tipOnBill={tipOnBill}
+            onAnswerTipOnBill={setTipOnBill}
             tipPercent={tipPercent}
             onChangeTipPercent={setTipPercent}
             onContinue={handleContinue}

@@ -8,6 +8,74 @@ export function makeRowId(index: number): string {
   return `row-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/**
+ * A hand-marked answer: a check or a cross, circled in red pen.
+ *
+ * Drawn as strokes rather than set as glyphs (✓/✗), which read as typeset and
+ * would sit at odds with the printed receipt type around them. The circle
+ * overshoots its own start and the whole mark is rotated slightly, because a
+ * real circled answer is never closed cleanly.
+ */
+function PenAnswer({
+  kind,
+  selected,
+  label,
+  onSelect,
+}: {
+  kind: "yes" | "no";
+  selected: boolean;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      aria-label={label}
+      className="group flex flex-col items-center gap-1 px-2 py-1"
+    >
+      <svg
+        viewBox="0 0 56 56"
+        className="h-14 w-14 overflow-visible"
+        aria-hidden="true"
+      >
+        {kind === "yes" ? (
+          <path
+            d="M17 29 L25 37 L40 19"
+            className={`pen-mark ${selected ? "" : "opacity-30"}`}
+            style={selected ? undefined : { stroke: "var(--color-ink-faded)" }}
+          />
+        ) : (
+          <g
+            className={`pen-mark ${selected ? "" : "opacity-30"}`}
+            style={selected ? undefined : { stroke: "var(--color-ink-faded)" }}
+          >
+            <path d="M19 19 L37 37" />
+            <path d="M37 19 L19 37" />
+          </g>
+        )}
+
+        {selected && (
+          <path
+            className="pen-circle"
+            pathLength={1}
+            d="M42 14 C50 22 48 40 34 45 C20 50 7 41 8 28 C9 16 21 8 33 10 C41 11 45 15 46 20"
+          />
+        )}
+      </svg>
+
+      <span
+        className={`font-receipt text-base uppercase ${
+          selected ? "text-ink" : "text-ink-muted"
+        }`}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
 /** Common tip percentages, matching the TIP row on the receipt page. */
 const TIP_PRESETS = [15, 18, 20, 25];
 
@@ -24,8 +92,9 @@ export interface NameRow {
 interface SetupSectionProps {
   names: NameRow[];
   onChangeNames: (names: NameRow[]) => void;
-  tipEnabled: boolean;
-  onToggleTip: (enabled: boolean) => void;
+  /** null until the user answers; Continue stays disabled while it is. */
+  tipOnBill: boolean | null;
+  onAnswerTipOnBill: (onBill: boolean) => void;
   tipPercent: number;
   onChangeTipPercent: (percent: number) => void;
   onContinue: () => void;
@@ -82,8 +151,8 @@ function TipPercentField({
 export function SetupSection({
   names,
   onChangeNames,
-  tipEnabled,
-  onToggleTip,
+  tipOnBill,
+  onAnswerTipOnBill,
   tipPercent,
   onChangeTipPercent,
   onContinue,
@@ -157,20 +226,30 @@ export function SetupSection({
       </div>
 
       <div className="mt-6">
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={tipEnabled}
-            onChange={(e) => onToggleTip(e.target.checked)}
-            className="h-4 w-4 accent-ink"
-          />
-          <span className="font-receipt text-lg uppercase text-ink">
-            Tip not on the bill
-          </span>
-        </label>
+        <p className="font-receipt text-lg uppercase text-ink">
+          Was the tip on the bill?
+        </p>
 
-        {tipEnabled && (
-          <div className="mt-3 space-y-2 pl-6">
+        <div className="mt-1 flex items-start gap-4">
+          <PenAnswer
+            kind="yes"
+            label="Yes"
+            selected={tipOnBill === true}
+            onSelect={() => onAnswerTipOnBill(true)}
+          />
+          <PenAnswer
+            kind="no"
+            label="No"
+            selected={tipOnBill === false}
+            onSelect={() => onAnswerTipOnBill(false)}
+          />
+        </div>
+
+        {tipOnBill === false && (
+          <div className="mt-3 space-y-2">
+            <p className="font-receipt text-sm text-ink-faded">
+              How much are you adding?
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {TIP_PRESETS.map((pct) => (
                 <button
@@ -199,10 +278,14 @@ export function SetupSection({
       <button
         type="button"
         onClick={onContinue}
-        disabled={isBusy}
+        disabled={isBusy || tipOnBill === null}
         className="mt-6 w-full border-2 border-ink py-2 font-receipt text-lg uppercase text-ink transition-colors hover:bg-ink hover:text-paper disabled:opacity-50"
       >
-        {isBusy ? "Reading receipt…" : "Continue"}
+        {isBusy
+          ? "Reading receipt…"
+          : tipOnBill === null
+            ? "Answer the tip question"
+            : "Continue"}
       </button>
     </Section>
   );
