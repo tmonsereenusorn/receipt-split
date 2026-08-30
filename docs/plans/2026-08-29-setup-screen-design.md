@@ -42,30 +42,47 @@ Two blocks, in the app's receipt-tape style:
 1. **Who was there?** — a list of name inputs with add and remove. Empty is allowed;
    Continue works with zero people, because people can still be added on the receipt page.
    This is a shortcut, not a gate.
-2. **Tip not on the bill** — a checkbox. When checked it reveals a percentage field with
-   the existing `TIP_PRESETS` (15/18/20/25). When unchecked, no percentage is shown.
+2. **Was the tip on the bill?** — a required Yes/No question. Answering No reveals a
+   percentage field with the `TIP_PRESETS` (0/15/18/20/25). Continue stays disabled until
+   the question is answered, so no default carries meaning.
+
+   `0` is a first-class preset: tipping is not customary in much of the world, and the app
+   already picks its currency from the locale, so a non-tipping region is ordinary rather
+   than an edge case.
+
+   Answers are **drawn, not typeset**. The app already marks paper in red pen
+   (`.strikethrough-line`), so the check, the cross, and the circle around the chosen one
+   are SVG strokes in the same accent — printed things are type, marked things are strokes.
+   Glyph ✓/✗ would read as typeset and sit at odds with the receipt mono around them. The
+   circle overshoots its own start and sits a few degrees off-axis, because a real circled
+   answer is never closed cleanly; it draws in on selection and is static under
+   `prefers-reduced-motion`.
 
 ## Tip resolution
 
-Two sources can supply a tip: the checkbox, and a tip line the scan finds printed on the
+Two sources can supply a tip: the answer, and a tip line the scan finds printed on the
 bill. The user answers before the scan result exists, so they can disagree.
 
-**An active choice overrides the bill; inaction does not.**
+**Because the question is required, both answers are deliberate** and neither needs to
+defer to the other:
 
-| Setup answer | Bill | Result |
+| Answer | Bill | Result |
 | --- | --- | --- |
-| checked, N% | tip printed | **N%** — the user's explicit choice wins |
-| checked, N% | no tip | **N%** |
-| unchecked | tip printed | **the printed tip** |
-| unchecked | no tip | **$0.00** |
+| on the bill | tip printed | **the printed tip** |
+| on the bill | no tip | **$0.00** |
+| not on the bill | either | **the entered percentage** |
 
-The asymmetry is deliberate. Unchecked is the default state, so treating it as a
-deliberate "no tip" would let someone discard a real printed tip merely by pressing
-Continue without reading. Checking the box is an action; leaving it alone is not.
+Answering "on the bill" when the scan found none yields no tip rather than an invented
+one — the TIP row stays editable on the receipt page.
 
-**Behavior change:** a receipt created with the box unchecked and no tip on the bill now
-carries a `$0.00` tip instead of a silent 20%. Totals on new receipts will be lower than
-they would have been, and correct.
+An earlier revision of this document made the question an optional checkbox, which forced
+an asymmetry: a default state must not silently discard a printed tip, so unchecked could
+not override the bill while checked could. Asking outright removes the default and with it
+the special case.
+
+**Behavior change:** receipts no longer carry the silent 20% tip that `initialTip` applies
+to every receipt today regardless of intent. Totals on new receipts will be lower, and
+correct. Existing receipts are untouched.
 
 ## Implementation
 
@@ -78,7 +95,9 @@ matters must live where it can be.
 export function buildInitialPeople(names: string[]): Person[]
 
 export interface SetupTipAnswer {
-  enabled: boolean;
+  /** Whether the tip was already printed on the bill. */
+  onBill: boolean;
+  /** Percentage to add, meaningful only when it was NOT on the bill. */
   percent: number;
 }
 
@@ -93,8 +112,9 @@ export function resolveInitialTip(
 cycles `PERSON_COLORS` with `index % PERSON_COLORS.length`, so a group larger than the
 palette still gets distinct-looking neighbours.
 
-**`src/components/receipt/SetupSection.tsx`** — presentation only: name rows, the tip
-checkbox, the percent field, and Continue. All state lifted to `page.tsx`.
+**`src/components/receipt/SetupSection.tsx`** — presentation only: name rows, the required
+Yes/No question with its pen marks, the percent field, and Continue. All state is lifted to
+`page.tsx`.
 
 **`src/app/page.tsx`** — holds the step state and the scan promise, calls the two pure
 functions, and passes `people` and `tip` into the existing `createReceipt`, which already
@@ -102,9 +122,15 @@ accepts both.
 
 ## Scan failure
 
-If the scan fails while the user is on the setup step, the failure message renders there
-with a Retake action, preserving today's recovery path. Without it a user could fill the
-form and press Continue against a scan that had already failed.
+If the scan fails while the user is on the setup step, **the route's own message** renders
+there with a Retake action. The route distinguishes seven failures, and their advice
+differs — "too many items, split it into two photos" is a different remedy from "try a
+clearer photo", and these failures reproduce on a re-shoot, so collapsing them to one
+generic line leaves the user with no way to learn the actual fix.
+
+The scan resolves to a discriminated `ScanOutcome` carrying that message rather than a bare
+`null`. Without the failure screen a user could fill the form and press Continue against a
+scan that had already failed.
 
 ## Testing
 
@@ -113,10 +139,11 @@ TDD throughout.
 - **`buildInitialPeople`** — blanks and whitespace-only names dropped; names trimmed;
   colors cycle past the palette length; duplicate names allowed (two people can share one);
   empty input → `[]`
-- **`resolveInitialTip`** — all four cells of the table, plus a parsed tip of `0`
-  (a printed `$0.00` tip is still a printed tip and must not be confused with absence)
-- **End-to-end** — a scanned receipt with a printed tip and the box left unchecked keeps
-  the printed tip; with the box checked, the percentage wins
+- **`resolveInitialTip`** — every cell of the table, plus a parsed tip of `0` (a printed
+  `$0.00` tip is still printed and must not be confused with absence), and a fractional
+  percentage surviving intact
+- **End-to-end** — a scanned receipt with a printed tip and "on the bill" answered keeps
+  the printed tip; answering "not on the bill" uses the percentage instead
 
 ## Out of scope
 
